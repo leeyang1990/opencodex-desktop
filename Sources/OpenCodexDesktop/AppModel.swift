@@ -7,6 +7,8 @@ final class AppModel: ObservableObject {
     @Published var health: HealthResponse?
     @Published var config: ConfigSummary?
     @Published var settings: RuntimeSettings?
+    @Published var imageGenerationSettings: ImageGenerationSettings = .defaults
+    @Published var forceGPTVision = false
     @Published var providers: [Provider] = []
     @Published var presets: [ProviderPreset] = []
     @Published var codexAccounts: [CodexAccount] = []
@@ -35,6 +37,8 @@ final class AppModel: ObservableObject {
     let coreManager = CoreManager.shared
     private let defaults: UserDefaults
     private var accountLoginTask: Task<Void, Never>?
+    private let imageGenerationSettingsStore = ImageGenerationSettingsStore()
+    private let visionRoutingSettingsStore = VisionRoutingSettingsStore()
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -55,6 +59,7 @@ final class AppModel: ObservableObject {
 
     func bootstrap() async {
         coreManager.refreshInstallation()
+        forceGPTVision = visionRoutingSettingsStore.load()
         await refresh()
         guard connectionState == .offline else { return }
         if coreManager.installationState.isInstalled {
@@ -81,6 +86,7 @@ final class AppModel: ObservableObject {
             accountPoolStatus = nil
             config = nil
             settings = nil
+            imageGenerationSettings = (try? imageGenerationSettingsStore.load()) ?? .defaults
             if !(error is OpenCodexAPIError) { errorMessage = error.localizedDescription }
             return
         }
@@ -93,6 +99,7 @@ final class AppModel: ObservableObject {
             let loaded = try await (configValue, settingsValue, providerValue, presetValue)
             config = loaded.0
             settings = loaded.1
+            imageGenerationSettings = (try? imageGenerationSettingsStore.load()) ?? .defaults
             providers = loaded.2.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             presets = loaded.3
             connectionState = .online
@@ -463,6 +470,58 @@ final class AppModel: ObservableObject {
             operationMessage = "设置已保存"
             await refresh(showSpinner: false)
             return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func saveImageGenerationSettings(_ settings: ImageGenerationSettings) async -> Bool {
+        do {
+            if self.settings != nil {
+                try await client.stopProxy()
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+            await coreManager.stop()
+            try imageGenerationSettingsStore.save(settings)
+            imageGenerationSettings = try imageGenerationSettingsStore.load()
+            try await coreManager.start(port: connectionPort)
+            for _ in 0..<60 {
+                try? await Task.sleep(for: .milliseconds(250))
+                if (try? await client.health()) != nil {
+                    operationMessage = settings.usesCustomProvider
+                        ? "生图已切换到自定义 Provider"
+                        : "生图已切换到 GPT 账号自动路由"
+                    await refresh(showSpinner: false)
+                    return true
+                }
+            }
+            throw CoreManagerError.launchFailed("保存成功，但内核未能及时恢复")
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func saveVisionRouting(forceGPTVision: Bool) async -> Bool {
+        do {
+            if settings != nil {
+                try await client.stopProxy()
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+            await coreManager.stop()
+            try visionRoutingSettingsStore.save(forceGPTVision: forceGPTVision)
+            self.forceGPTVision = forceGPTVision
+            try await coreManager.start(port: connectionPort)
+            for _ in 0..<60 {
+                try? await Task.sleep(for: .milliseconds(250))
+                if (try? await client.health()) != nil {
+                    operationMessage = forceGPTVision ? "已强制使用 GPT 视觉旁路" : "已恢复模型原生多模态"
+                    await refresh(showSpinner: false)
+                    return true
+                }
+            }
+            throw CoreManagerError.launchFailed("保存成功，但内核未能及时恢复")
         } catch {
             errorMessage = error.localizedDescription
             return false

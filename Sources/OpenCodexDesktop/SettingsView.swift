@@ -12,6 +12,10 @@ struct SettingsView: View {
     @State private var streamMode = "auto"
     @State private var memoryBudget = 256
     @State private var accountPicker = false
+    @State private var customImageProvider = false
+    @State private var imageProvider = ""
+    @State private var imageTimeoutSeconds = 300
+    @State private var forceGPTVision = false
     @State private var loaded = false
     @State private var isSaving = false
     @State private var confirmUninstall = false
@@ -29,6 +33,8 @@ struct SettingsView: View {
 
                 if model.isOnline {
                     runtimeSection
+                    visionRoutingSection
+                    imageGenerationSection
                     securitySection
                 } else {
                     Label("连接服务后可编辑运行设置", systemImage: "info.circle")
@@ -219,6 +225,100 @@ struct SettingsView: View {
         .cardStyle()
     }
 
+    private var imageGenerationSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                sectionHeader("图片生成", symbol: "photo.badge.plus")
+                Spacer()
+                if isSaving { ProgressView().controlSize(.small) }
+            }
+
+            settingRow(
+                title: "自定义生图 Provider",
+                detail: customImageProvider
+                    ? "图片请求固定发送到所选 Provider，不回退到 GPT 账号"
+                    : "使用 GPT 登录账号自动路由，必要时由 Core 选择可用后端"
+            ) {
+                Toggle("", isOn: $customImageProvider)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .disabled(isSaving)
+                    .onChange(of: customImageProvider) { _, enabled in
+                        if !enabled || !imageProvider.isEmpty { saveImageSettingsIfChanged() }
+                    }
+            }
+
+            if customImageProvider {
+                Divider()
+                settingRow(
+                    title: "生图 Provider",
+                    detail: "可选择现有 API Key Provider；App 会自动创建隔离的生图路由"
+                ) {
+                    Picker("", selection: $imageProvider) {
+                        Text("请选择").tag("")
+                        ForEach(imageProviderOptions, id: \.name) { provider in
+                            Text(provider.name).tag(provider.name)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 240)
+                    .disabled(isSaving)
+                    .onChange(of: imageProvider) { _, _ in saveImageSettingsIfChanged() }
+                }
+            }
+
+            Divider()
+            settingRow(
+                title: "请求超时",
+                detail: "图片生成或编辑请求的最长等待时间"
+            ) {
+                Picker("", selection: $imageTimeoutSeconds) {
+                    Text("60 秒").tag(60)
+                    Text("120 秒").tag(120)
+                    Text("300 秒").tag(300)
+                }
+                .labelsHidden()
+                .frame(width: 120)
+                .disabled(isSaving)
+                .onChange(of: imageTimeoutSeconds) { _, _ in saveImageSettingsIfChanged() }
+            }
+        }
+        .cardStyle()
+    }
+
+    private var visionRoutingSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                sectionHeader("图像理解", symbol: "eye")
+                Spacer()
+                if isSaving { ProgressView().controlSize(.small) }
+            }
+            settingRow(
+                title: "强制 GPT 视觉旁路",
+                detail: forceGPTVision
+                    ? "GPT 先识别图片，再把文字描述交给当前模型"
+                    : "图片直接发送给当前模型；文本模型可能返回不支持图片"
+            ) {
+                Toggle("", isOn: $forceGPTVision)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .disabled(isSaving)
+                    .onChange(of: forceGPTVision) { _, enabled in
+                        guard loaded, enabled != model.forceGPTVision else { return }
+                        saveVisionSettings()
+                    }
+            }
+        }
+        .cardStyle()
+    }
+
+    private var imageProviderOptions: [Provider] {
+        model.providers.filter {
+            !$0.disabled && ($0.authMode == nil || $0.authMode == "key") && $0.hasApiKey
+                && !$0.name.hasSuffix(".images") && !$0.name.hasSuffix(".opencodex-images")
+        }
+    }
+
     @ViewBuilder
     private var coreInstallationStatus: some View {
         switch coreManager.installationState {
@@ -351,6 +451,11 @@ struct SettingsView: View {
             memoryBudget = settings.appOwnedMemoryBudgetMb
             accountPicker = settings.codexAccountPickerEnabled
         }
+        let imageSettings = model.imageGenerationSettings
+        customImageProvider = imageSettings.usesCustomProvider
+        imageProvider = imageSettings.provider
+        imageTimeoutSeconds = max(1, imageSettings.timeoutMs / 1_000)
+        forceGPTVision = model.forceGPTVision
         loaded = true
     }
 
@@ -364,6 +469,31 @@ struct SettingsView: View {
                 memoryBudget: memoryBudget,
                 accountPicker: accountPicker
             )
+            isSaving = false
+        }
+    }
+
+    private func saveImageSettingsIfChanged() {
+        guard loaded else { return }
+        let settings = ImageGenerationSettings(
+            usesCustomProvider: customImageProvider,
+            provider: imageProvider,
+            timeoutMs: imageTimeoutSeconds * 1_000
+        )
+        guard settings != model.imageGenerationSettings,
+              !settings.usesCustomProvider || !settings.provider.isEmpty else { return }
+        isSaving = true
+        Task {
+            _ = await model.saveImageGenerationSettings(settings)
+            isSaving = false
+        }
+    }
+
+    private func saveVisionSettings() {
+        guard loaded else { return }
+        isSaving = true
+        Task {
+            _ = await model.saveVisionRouting(forceGPTVision: forceGPTVision)
             isSaving = false
         }
     }
