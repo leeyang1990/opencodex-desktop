@@ -1,0 +1,49 @@
+name: Release macOS App
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish arm64 release
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build and verify release package
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          ./scripts/release.sh "$version"
+
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          archive="dist/release/OpenCodex-Desktop-v${version}-macOS-arm64.zip"
+          checksum="${archive}.sha256"
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$archive" "$checksum" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$archive" "$checksum" \
+              --verify-tag \
+              --generate-notes \
+              --title "OpenCodex Desktop ${version}"
+          fi

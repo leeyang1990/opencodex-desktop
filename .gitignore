@@ -1,0 +1,7 @@
+.build/
+.cache/
+dist/
+.swiftpm/
+.DS_Store
+.tmp/
+vendor/opencodex/
