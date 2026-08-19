@@ -1,3 +1,7 @@
+<p align="center">
+  <strong>简体中文</strong> · <a href="README.en.md">English</a>
+</p>
+
 <div align="center">
   <img src="Assets/AppIcon-Source.png" width="136" alt="OpenCodex Desktop 图标">
   <h1>OpenCodex Desktop</h1>
