@@ -1,15 +1,21 @@
 <div align="center">
-  <img src="Assets/AppIcon-Source.png" width="144" alt="OpenCodex Desktop 图标">
+  <img src="Assets/AppIcon-Source.png" width="136" alt="OpenCodex Desktop 图标">
   <h1>OpenCodex Desktop</h1>
-  <p><strong>为 OpenCodex Core 打造的原生 macOS 管理客户端</strong></p>
+  <p><strong>OpenCodex Core 的原生 macOS 控制台</strong></p>
   <p>
-    安装与管理本地内核，在一个简洁的 SwiftUI 界面中配置 Provider、模型、账号池和运行参数。
+    安装和管理本地内核，在一个简洁的 SwiftUI 界面中完成 Provider、模型与账号池配置。
   </p>
   <p>
     <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111827?style=flat-square&logo=apple&logoColor=white">
     <img alt="Swift 5.10" src="https://img.shields.io/badge/Swift-5.10-F05138?style=flat-square&logo=swift&logoColor=white">
     <img alt="Apple Silicon" src="https://img.shields.io/badge/macOS-Apple_Silicon-2563EB?style=flat-square&logo=apple&logoColor=white">
     <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/License-MIT-10B981?style=flat-square"></a>
+  </p>
+  <p>
+    <a href="https://github.com/leeyang1990/opencodex-desktop/releases">Releases</a>
+    · <a href="#界面预览">界面预览</a>
+    · <a href="#开发">本地构建</a>
+    · <a href="#安全边界">安全设计</a>
   </p>
 </div>
 
@@ -27,6 +33,42 @@ OpenCodex Desktop 是独立、轻量的 macOS 启动器，不是 OpenCodex 的�
 - **账号池管理** — 查看账号状态与轮换策略。
 - **本地优先** — 管理接口仅允许连接回环地址，敏感配置不进入仓库或 App Bundle。
 - **可验证安装** — 下载地址固定为 HTTPS，内核、锁文件和运行时均校验 SHA-256。
+
+## 界面预览
+
+<p align="center">
+  <a href="Assets/screenshots/overview.png">
+    <img src="Assets/screenshots/overview.png" width="100%" alt="OpenCodex Desktop 概览界面">
+  </a>
+</p>
+<p align="center">
+  <sub>服务、Provider、默认路由与本地运行时状态一目了然</sub>
+</p>
+
+<table>
+  <tr>
+    <td width="50%">
+      <a href="Assets/screenshots/accounts.png">
+        <img src="Assets/screenshots/accounts.png" alt="OpenCodex Desktop 账号池界面">
+      </a>
+    </td>
+    <td width="50%">
+      <a href="Assets/screenshots/models.png">
+        <img src="Assets/screenshots/models.png" alt="OpenCodex Desktop 模型管理界面">
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <strong>账号池与切换策略</strong><br>
+      <sub>查看健康状态、用量，并配置账号轮换</sub>
+    </td>
+    <td align="center">
+      <strong>模型目录与路由</strong><br>
+      <sub>按 Provider 筛选模型并控制 Codex 可见性</sub>
+    </td>
+  </tr>
+</table>
 
 ## 兼容性
 
