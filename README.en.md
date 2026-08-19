@@ -20,6 +20,7 @@
     · <a href="#interface-preview">Interface Preview</a>
     · <a href="#development">Local Build</a>
     · <a href="#security-boundary">Security</a>
+    · <a href="#acknowledgements">Acknowledgements</a>
   </p>
 </div>
 
@@ -199,6 +200,12 @@ git clone --branch v2.12.0 --single-branch \
 - Downloaded artifacts must use pinned HTTPS URLs and exact digests.
 - Core compatibility must be explicitly verified before the desktop client updates it.
 - Generated apps, runtimes, configuration, credentials, and logs are excluded from version control.
+
+## Acknowledgements
+
+OpenCodex Desktop is made possible by [OpenCodex](https://github.com/lidge-jun/opencodex). Our sincere thanks go to the OpenCodex maintainers and every contributor who invests their time and effort in building and maintaining this excellent open-source project for the community.
+
+This project is an independently developed community desktop client and is not an official OpenCodex distribution. We deeply appreciate the upstream project and encourage users to explore, use, and support the original work.
 
 ## License and Third-Party Components
 
