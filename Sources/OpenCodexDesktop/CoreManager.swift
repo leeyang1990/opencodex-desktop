@@ -534,8 +534,9 @@ final class CoreManager: ObservableObject {
         process.environment = environment
         stopRequested = false
         process.terminationHandler = { [weak self] terminatedProcess in
-            Task { @MainActor in
-                self?.handleTermination(of: terminatedProcess)
+            guard let manager = self else { return }
+            Task { @MainActor [manager] in
+                manager.handleTermination(of: terminatedProcess)
             }
         }
         do {
