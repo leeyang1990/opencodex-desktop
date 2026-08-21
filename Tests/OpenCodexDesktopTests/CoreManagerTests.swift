@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+
 @testable import OpenCodexDesktop
 
 final class CoreReleaseTests: XCTestCase {
@@ -13,6 +14,9 @@ final class CoreReleaseTests: XCTestCase {
         XCTAssertEqual(release.package.sha256.count, 64)
         XCTAssertEqual(release.lockfile.sha256.count, 64)
         XCTAssertEqual(release.bunArtifact.archive.sha256.count, 64)
+        XCTAssertGreaterThan(release.package.maximumBytes, 0)
+        XCTAssertGreaterThan(release.lockfile.maximumBytes, 0)
+        XCTAssertGreaterThan(release.bunArtifact.archive.maximumBytes, 0)
     }
 
     func testOnlyCompatibleInstallationIsRunnable() {

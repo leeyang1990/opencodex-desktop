@@ -8,7 +8,7 @@ struct ImageGenerationSettings: Equatable {
     static let defaults = ImageGenerationSettings(
         usesCustomProvider: false,
         provider: "",
-        timeoutMs: 300_000
+        timeoutMs: AppConstants.ImageGeneration.defaultTimeoutMs
     )
 }
 
@@ -31,7 +31,8 @@ struct ImageGenerationSettingsStore {
         let providers = root["providers"] as? [String: Any]
         let routedConfig = providers?[routedProvider] as? [String: Any]
         let note = routedConfig?["note"] as? String
-        let provider = note?.hasPrefix(Self.managedNotePrefix) == true
+        let provider =
+            note?.hasPrefix(Self.managedNotePrefix) == true
             ? String(note!.dropFirst(Self.managedNotePrefix.count))
             : routedProvider
         let timeout = images?["timeoutMs"] as? Int ?? ImageGenerationSettings.defaults.timeoutMs
@@ -72,10 +73,14 @@ struct ImageGenerationSettingsStore {
         } else {
             images.removeValue(forKey: "provider")
         }
-        images["timeoutMs"] = min(max(settings.timeoutMs, 1_000), 300_000)
+        images["timeoutMs"] = min(
+            max(settings.timeoutMs, AppConstants.ImageGeneration.minimumTimeoutMs),
+            AppConstants.ImageGeneration.maximumTimeoutMs
+        )
         root["images"] = images
         root["providers"] = providers
-        let encoded = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+        let encoded = try JSONSerialization.data(
+            withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
         try encoded.write(to: configURL, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configURL.path)
     }
@@ -83,7 +88,8 @@ struct ImageGenerationSettingsStore {
     private func uniqueManagedName(for source: String, providers: [String: Any]) -> String {
         let preferred = "\(source).images"
         if let existing = providers[preferred] as? [String: Any],
-           existing["note"] as? String == Self.managedNotePrefix + source {
+            existing["note"] as? String == Self.managedNotePrefix + source
+        {
             return preferred
         }
         if providers[preferred] == nil { return preferred }
@@ -92,7 +98,8 @@ struct ImageGenerationSettingsStore {
 
     private func removeUnusedManagedProvider(_ name: String?, from providers: inout [String: Any]) {
         guard let name, let provider = providers[name] as? [String: Any],
-              (provider["note"] as? String)?.hasPrefix(Self.managedNotePrefix) == true else { return }
+            (provider["note"] as? String)?.hasPrefix(Self.managedNotePrefix) == true
+        else { return }
         providers.removeValue(forKey: name)
     }
 }
@@ -123,11 +130,12 @@ struct VisionRoutingSettingsStore {
 
     func load() -> Bool {
         guard let data = try? Data(contentsOf: stateURL),
-              let state = try? JSONDecoder().decode(State.self, from: data),
-              state.forceGPTVision,
-              let configData = try? Data(contentsOf: configURL),
-              let root = try? JSONSerialization.jsonObject(with: configData) as? [String: Any],
-              let providers = root["providers"] as? [String: Any] else { return false }
+            let state = try? JSONDecoder().decode(State.self, from: data),
+            state.forceGPTVision,
+            let configData = try? Data(contentsOf: configURL),
+            let root = try? JSONSerialization.jsonObject(with: configData) as? [String: Any],
+            let providers = root["providers"] as? [String: Any]
+        else { return false }
         return providers.values.contains { value in
             guard let provider = value as? [String: Any] else { return false }
             return (provider["noVisionModels"] as? [String])?.isEmpty == false
@@ -137,7 +145,8 @@ struct VisionRoutingSettingsStore {
     func save(forceGPTVision: Bool) throws {
         let data = try Data(contentsOf: configURL)
         guard var root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              var providers = root["providers"] as? [String: Any] else {
+            var providers = root["providers"] as? [String: Any]
+        else {
             throw CocoaError(.fileReadCorruptFile)
         }
         for (name, value) in providers {
@@ -151,12 +160,19 @@ struct VisionRoutingSettingsStore {
             providers[name] = provider
         }
         root["providers"] = providers
-        let encoded = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+        let encoded = try JSONSerialization.data(
+            withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
         try encoded.write(to: configURL, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: configURL.path)
 
-        try FileManager.default.createDirectory(at: stateURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: stateURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: stateURL.deletingLastPathComponent().path
+        )
         try JSONEncoder().encode(State(forceGPTVision: forceGPTVision)).write(to: stateURL, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: stateURL.path)
     }
 
     private struct State: Codable {

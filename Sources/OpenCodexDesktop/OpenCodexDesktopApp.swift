@@ -32,7 +32,10 @@ struct OpenCodexDesktopApp: App {
             MenuBarContent()
                 .environmentObject(model)
         } label: {
-            Label("OpenCodex Desktop", systemImage: model.isOnline ? "point.3.filled.connected.trianglepath.dotted" : "point.3.connected.trianglepath.dotted")
+            Label(
+                "OpenCodex Desktop",
+                systemImage: model.isOnline
+                    ? "point.3.filled.connected.trianglepath.dotted" : "point.3.connected.trianglepath.dotted")
         }
         .menuBarExtraStyle(.menu)
     }

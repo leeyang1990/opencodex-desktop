@@ -1,11 +1,19 @@
 import AppKit
 import CryptoKit
+import Darwin
 import Foundation
 import ServiceManagement
 
 struct DownloadArtifact: Sendable, Equatable {
     let url: URL
     let sha256: String
+    let maximumBytes: Int64
+
+    init(url: URL, sha256: String, maximumBytes: Int64 = 256 * 1_024 * 1_024) {
+        self.url = url
+        self.sha256 = sha256
+        self.maximumBytes = maximumBytes
+    }
 }
 
 struct BunArtifact: Sendable, Equatable {
@@ -28,7 +36,10 @@ struct CoreRelease: Sendable, Equatable {
             sha256: "0c66a292f102f7eb7befca97cdfd5e03941a172e8031ce540ca5927743744d34"
         ),
         lockfile: DownloadArtifact(
-            url: URL(string: "https://raw.githubusercontent.com/lidge-jun/opencodex/6d881db206c6a74da6b64fa22b6980faf05d0122/bun.lock")!,
+            url: URL(
+                string:
+                    "https://raw.githubusercontent.com/lidge-jun/opencodex/6d881db206c6a74da6b64fa22b6980faf05d0122/bun.lock"
+            )!,
             sha256: "a22537a6b5f7c67c3043c1c112d90122e0a1874d0704b5ce997f8e855975d103"
         ),
         bunVersion: "1.3.14"
@@ -36,23 +47,25 @@ struct CoreRelease: Sendable, Equatable {
 
     var bunArtifact: BunArtifact {
         #if arch(arm64)
-        BunArtifact(
-            archive: DownloadArtifact(
-                url: URL(string: "https://github.com/oven-sh/bun/releases/download/bun-v1.3.14/bun-darwin-aarch64.zip")!,
-                sha256: "d8b96221828ad6f97ac7ac0ab7e95872341af763001e8803e8267652c2652620"
-            ),
-            archiveDirectory: "bun-darwin-aarch64"
-        )
+            BunArtifact(
+                archive: DownloadArtifact(
+                    url: URL(
+                        string: "https://github.com/oven-sh/bun/releases/download/bun-v1.3.14/bun-darwin-aarch64.zip")!,
+                    sha256: "d8b96221828ad6f97ac7ac0ab7e95872341af763001e8803e8267652c2652620"
+                ),
+                archiveDirectory: "bun-darwin-aarch64"
+            )
         #elseif arch(x86_64)
-        BunArtifact(
-            archive: DownloadArtifact(
-                url: URL(string: "https://github.com/oven-sh/bun/releases/download/bun-v1.3.14/bun-darwin-x64.zip")!,
-                sha256: "4183df3374623e5bab315c547cfa0974533cd457d86b73b639f7a87974cd6633"
-            ),
-            archiveDirectory: "bun-darwin-x64"
-        )
+            BunArtifact(
+                archive: DownloadArtifact(
+                    url: URL(
+                        string: "https://github.com/oven-sh/bun/releases/download/bun-v1.3.14/bun-darwin-x64.zip")!,
+                    sha256: "4183df3374623e5bab315c547cfa0974533cd457d86b73b639f7a87974cd6633"
+                ),
+                archiveDirectory: "bun-darwin-x64"
+            )
         #else
-        fatalError("Unsupported Mac architecture")
+            fatalError("Unsupported Mac architecture")
         #endif
     }
 }
@@ -77,7 +90,8 @@ struct InstalledCorePaths: Sendable {
 
 enum CoreInstallationPaths {
     static var applicationSupportDirectory: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        let base =
+            FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
         return base.appendingPathComponent("OpenCodex Desktop", isDirectory: true)
     }
@@ -99,9 +113,11 @@ enum CoreInstallationPaths {
     }
 
     static var dataDirectory: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        let base =
+            FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
-        return base
+        return
+            base
             .appendingPathComponent("OpenCodex", isDirectory: true)
             .appendingPathComponent("Data", isDirectory: true)
     }
@@ -151,6 +167,8 @@ enum CoreManagerError: LocalizedError {
     case notInstalled
     case unsupportedArchitecture
     case downloadFailed(String)
+    case insecureDownload(String)
+    case artifactTooLarge(String)
     case checksumMismatch(String)
     case commandFailed(String)
     case invalidInstallation
@@ -165,6 +183,10 @@ enum CoreManagerError: LocalizedError {
             "当前 Mac 架构不受支持"
         case let .downloadFailed(message):
             "内核下载失败：\(message)"
+        case let .insecureDownload(name):
+            "\(name) 下载未保持 HTTPS，安装已终止"
+        case let .artifactTooLarge(name):
+            "\(name) 超过允许的下载大小，安装已终止"
         case let .checksumMismatch(name):
             "\(name) 校验失败，安装已终止"
         case let .commandFailed(message):
@@ -190,9 +212,9 @@ actor CoreInstaller {
     }
 
     func install(release: CoreRelease, phase: PhaseHandler) async throws -> InstalledCoreManifest {
-        try fileManager.createDirectory(at: CoreInstallationPaths.stagingDirectory, withIntermediateDirectories: true)
-        try fileManager.createDirectory(at: CoreInstallationPaths.versionsDirectory, withIntermediateDirectories: true)
-        try fileManager.createDirectory(at: CoreInstallationPaths.cacheDirectory, withIntermediateDirectories: true)
+        try ensurePrivateDirectory(CoreInstallationPaths.stagingDirectory)
+        try ensurePrivateDirectory(CoreInstallationPaths.versionsDirectory)
+        try ensurePrivateDirectory(CoreInstallationPaths.cacheDirectory)
 
         let stagingRoot = CoreInstallationPaths.stagingDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -231,7 +253,8 @@ actor CoreInstaller {
             arguments: ["-x", "-k", bunArchive.path, bunExtractRoot.path],
             logURL: stagingRoot.appendingPathComponent("extract-bun.log")
         )
-        let extractedBun = bunExtractRoot
+        let extractedBun =
+            bunExtractRoot
             .appendingPathComponent(bunArtifact.archiveDirectory, isDirectory: true)
             .appendingPathComponent("bun")
         let installedBun = binRoot.appendingPathComponent("bun")
@@ -279,8 +302,9 @@ actor CoreInstaller {
         )
 
         guard fileManager.isExecutableFile(atPath: installedBun.path),
-              fileManager.fileExists(atPath: packageRoot.appendingPathComponent("src/cli/index.ts").path),
-              fileManager.fileExists(atPath: packageRoot.appendingPathComponent("node_modules").path) else {
+            fileManager.fileExists(atPath: packageRoot.appendingPathComponent("src/cli/index.ts").path),
+            fileManager.fileExists(atPath: packageRoot.appendingPathComponent("node_modules").path)
+        else {
             throw CoreManagerError.invalidInstallation
         }
 
@@ -291,7 +315,10 @@ actor CoreInstaller {
 
     func uninstall(version: String) throws {
         let target = CoreInstallationPaths.versionDirectory(version)
-        guard target.deletingLastPathComponent().standardizedFileURL == CoreInstallationPaths.versionsDirectory.standardizedFileURL else {
+        guard
+            target.deletingLastPathComponent().standardizedFileURL
+                == CoreInstallationPaths.versionsDirectory.standardizedFileURL
+        else {
             throw CoreManagerError.invalidInstallation
         }
         if fileManager.fileExists(atPath: target.path) {
@@ -300,6 +327,9 @@ actor CoreInstaller {
     }
 
     private func download(_ artifact: DownloadArtifact, named name: String, to destination: URL) async throws {
+        guard artifact.url.scheme?.lowercased() == "https" else {
+            throw CoreManagerError.insecureDownload(name)
+        }
         let temporary: URL
         let response: URLResponse
         do {
@@ -311,11 +341,24 @@ actor CoreInstaller {
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             throw CoreManagerError.downloadFailed("HTTP \(status)")
         }
+        guard response.url?.scheme?.lowercased() == "https" else {
+            throw CoreManagerError.insecureDownload(name)
+        }
+        let attributes = try fileManager.attributesOfItem(atPath: temporary.path)
+        let size = (attributes[.size] as? NSNumber)?.int64Value ?? Int64.max
+        guard size <= artifact.maximumBytes else {
+            throw CoreManagerError.artifactTooLarge(name)
+        }
         let actual = try Self.sha256(of: temporary)
         guard actual == artifact.sha256.lowercased() else {
             throw CoreManagerError.checksumMismatch(name)
         }
         try fileManager.copyItem(at: temporary, to: destination)
+    }
+
+    private func ensurePrivateDirectory(_ url: URL) throws {
+        try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
+        try fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
     }
 
     private static func sha256(of url: URL) throws -> String {
@@ -360,11 +403,13 @@ actor CoreInstaller {
     }
 
     private func signNativeModules(in packageRoot: URL, logRoot: URL) throws {
-        guard let enumerator = fileManager.enumerator(
-            at: packageRoot.appendingPathComponent("node_modules", isDirectory: true),
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles]
-        ) else { return }
+        guard
+            let enumerator = fileManager.enumerator(
+                at: packageRoot.appendingPathComponent("node_modules", isDirectory: true),
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            )
+        else { return }
         var index = 0
         for case let url as URL in enumerator where url.pathExtension == "node" {
             index += 1
@@ -419,6 +464,7 @@ final class CoreManager: ObservableObject {
     private let installer = CoreInstaller()
     private var process: Process?
     private var logHandle: FileHandle?
+    private var stopRequested = false
 
     private init() {
         refreshInstallation()
@@ -426,9 +472,9 @@ final class CoreManager: ObservableObject {
 
     func refreshInstallation() {
         let manifests = Self.discoverInstalledCores()
-        if let compatible = manifests.first(where: {
-            $0.coreVersion == compatibleRelease.version && $0.coreCommit == compatibleRelease.commit
-        }), Self.isValidInstallation(compatible) {
+        if let compatible = manifests.first(where: { Self.isCompatibleManifest($0, with: compatibleRelease) }),
+            Self.isValidInstallation(compatible)
+        {
             installationState = .installed(compatible)
         } else if let existing = manifests.first(where: Self.isValidInstallation) {
             installationState = .updateAvailable(installed: existing, target: compatibleRelease)
@@ -466,7 +512,8 @@ final class CoreManager: ObservableObject {
         guard installationState.isInstalled else { throw CoreManagerError.notInstalled }
         let paths = CoreInstallationPaths.paths(for: compatibleRelease.version)
         guard FileManager.default.isExecutableFile(atPath: paths.runtimeExecutable.path),
-              FileManager.default.fileExists(atPath: paths.cliEntry.path) else {
+            FileManager.default.fileExists(atPath: paths.cliEntry.path)
+        else {
             throw CoreManagerError.invalidInstallation
         }
         try prepareDirectories(paths)
@@ -485,6 +532,12 @@ final class CoreManager: ObservableObject {
         environment["OCX_BUN_RUNTIME_PATH"] = paths.runtimeExecutable.path
         environment["NO_COLOR"] = "1"
         process.environment = environment
+        stopRequested = false
+        process.terminationHandler = { [weak self] terminatedProcess in
+            Task { @MainActor in
+                self?.handleTermination(of: terminatedProcess)
+            }
+        }
         do {
             try process.run()
         } catch {
@@ -502,25 +555,38 @@ final class CoreManager: ObservableObject {
             ownsRunningProcess = false
             return
         }
+        stopRequested = true
         process.terminate()
-        let deadline = ContinuousClock.now + .seconds(8)
+        let deadline = ContinuousClock.now + AppConstants.Service.terminateTimeout
         while process.isRunning, ContinuousClock.now < deadline {
-            try? await Task.sleep(for: .milliseconds(100))
+            try? await Task.sleep(for: AppConstants.Service.processPollInterval)
         }
         if process.isRunning {
             process.interrupt()
-            let interruptDeadline = ContinuousClock.now + .seconds(1)
+            let interruptDeadline = ContinuousClock.now + AppConstants.Service.interruptTimeout
             while process.isRunning, ContinuousClock.now < interruptDeadline {
-                try? await Task.sleep(for: .milliseconds(50))
+                try? await Task.sleep(for: AppConstants.Service.processPollInterval)
             }
         }
-        if !process.isRunning, process.terminationStatus != 0 {
-            lastExitMessage = Self.logTail(from: CoreInstallationPaths.logFile)
+        if process.isRunning {
+            Darwin.kill(process.processIdentifier, SIGKILL)
+            let killDeadline = ContinuousClock.now + AppConstants.Service.forceKillTimeout
+            while process.isRunning, ContinuousClock.now < killDeadline {
+                try? await Task.sleep(for: AppConstants.Service.processPollInterval)
+            }
         }
+        guard !process.isRunning else {
+            lastExitMessage = "无法停止 OpenCodex 内核进程（PID \(process.processIdentifier)）"
+            ownsRunningProcess = true
+            stopRequested = false
+            return
+        }
+        lastExitMessage = nil
         self.process = nil
         try? logHandle?.close()
         logHandle = nil
         ownsRunningProcess = false
+        stopRequested = false
     }
 
     func openLog() {
@@ -533,6 +599,7 @@ final class CoreManager: ObservableObject {
 
     func terminateOwnedProcess() {
         guard let process, process.isRunning else { return }
+        stopRequested = true
         process.terminate()
     }
 
@@ -542,36 +609,79 @@ final class CoreManager: ObservableObject {
 
     private static func discoverInstalledCores() -> [InstalledCoreManifest] {
         let manager = FileManager.default
-        guard let directories = try? manager.contentsOfDirectory(
-            at: CoreInstallationPaths.versionsDirectory,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
-        ) else { return [] }
+        guard
+            let directories = try? manager.contentsOfDirectory(
+                at: CoreInstallationPaths.versionsDirectory,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )
+        else { return [] }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return directories.compactMap { directory in
             let manifestURL = directory.appendingPathComponent("installation.json")
             guard let data = try? Data(contentsOf: manifestURL), data.count <= 16_384 else { return nil }
-            return try? decoder.decode(InstalledCoreManifest.self, from: data)
+            guard let manifest = try? decoder.decode(InstalledCoreManifest.self, from: data),
+                manifest.coreVersion == directory.lastPathComponent
+            else { return nil }
+            return manifest
         }.sorted { $0.installedAt > $1.installedAt }
     }
 
     private static func isValidInstallation(_ manifest: InstalledCoreManifest) -> Bool {
+        guard isSafeVersion(manifest.coreVersion) else { return false }
         let paths = CoreInstallationPaths.paths(for: manifest.coreVersion)
-        return FileManager.default.isExecutableFile(atPath: paths.runtimeExecutable.path)
+        return manifest.schemaVersion == 1
+            && FileManager.default.isExecutableFile(atPath: paths.runtimeExecutable.path)
             && FileManager.default.fileExists(atPath: paths.cliEntry.path)
             && FileManager.default.fileExists(atPath: paths.sourceRoot.appendingPathComponent("node_modules").path)
     }
 
+    private static func isCompatibleManifest(_ manifest: InstalledCoreManifest, with release: CoreRelease) -> Bool {
+        manifest.schemaVersion == 1
+            && manifest.coreVersion == release.version
+            && manifest.coreCommit == release.commit
+            && manifest.bunVersion == release.bunVersion
+            && manifest.packageSHA256 == release.package.sha256
+    }
+
+    private static func isSafeVersion(_ version: String) -> Bool {
+        version.range(
+            of: #"^[0-9]+\.[0-9]+\.[0-9]+(?:[-.][0-9A-Za-z.-]+)?$"#,
+            options: .regularExpression
+        ) != nil && !version.contains("..")
+    }
+
+    private func handleTermination(of terminatedProcess: Process) {
+        guard process === terminatedProcess else { return }
+        if !stopRequested {
+            lastExitMessage = Self.logTail(from: CoreInstallationPaths.logFile)
+            if lastExitMessage?.isEmpty != false {
+                lastExitMessage = "OpenCodex 内核已退出（状态码 \(terminatedProcess.terminationStatus)）"
+            }
+        }
+        process = nil
+        try? logHandle?.close()
+        logHandle = nil
+        ownsRunningProcess = false
+    }
+
     private func prepareDirectories(_ paths: InstalledCorePaths) throws {
         try FileManager.default.createDirectory(at: paths.dataDirectory, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: paths.logFile.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: paths.logFile.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: paths.dataDirectory.path)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: paths.logFile.deletingLastPathComponent().path
+        )
     }
 
     private func openLog(_ url: URL) throws -> FileHandle {
         if !FileManager.default.fileExists(atPath: url.path) {
             FileManager.default.createFile(atPath: url.path, contents: nil)
         }
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         let handle = try FileHandle(forWritingTo: url)
         try handle.seekToEnd()
         return handle

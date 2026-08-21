@@ -1,0 +1,38 @@
+name: Bug report
+description: Report a reproducible OpenCodex Desktop problem
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Never include API keys, management tokens, account identifiers, or unredacted configuration."
+  - type: input
+    id: desktop-version
+    attributes:
+      label: OpenCodex Desktop version
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: macOS and architecture
+      placeholder: macOS 14.6, Apple Silicon
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted logs
+      description: Remove credentials, account identifiers, request bodies, and private hostnames.

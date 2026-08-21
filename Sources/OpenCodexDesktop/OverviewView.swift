@@ -4,7 +4,7 @@ struct OverviewView: View {
     @EnvironmentObject private var model: AppModel
 
     private let columns = [
-        GridItem(.adaptive(minimum: 190, maximum: 260), spacing: 14),
+        GridItem(.adaptive(minimum: 190, maximum: 260), spacing: 14)
     ]
 
     var body: some View {
@@ -111,26 +111,30 @@ struct OverviewView: View {
 
     private var offlineContent: some View {
         VStack(spacing: 18) {
-            Image(systemName: model.connectionState == .unauthorized ? "lock.trianglebadge.exclamationmark" : "bolt.slash")
-                .font(.system(size: 34, weight: .medium))
-                .foregroundStyle(model.connectionState == .unauthorized ? AppPalette.warning : .secondary)
-                .frame(width: 72, height: 72)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            Image(
+                systemName: model.connectionState == .unauthorized ? "lock.trianglebadge.exclamationmark" : "bolt.slash"
+            )
+            .font(.system(size: 34, weight: .medium))
+            .foregroundStyle(model.connectionState == .unauthorized ? AppPalette.warning : .secondary)
+            .frame(width: 72, height: 72)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             Text(model.connectionState == .unauthorized ? "无法访问管理 API" : "OpenCodex 尚未运行")
                 .font(.title2.weight(.semibold))
-            Text(model.connectionState == .unauthorized
-                 ? "客户端需要读取本机受保护的管理令牌。启动或重启一次服务通常可以修复。"
-                 : "启动本地服务后，就可以在这里管理 Provider 与运行设置。")
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 440)
+            Text(
+                model.connectionState == .unauthorized
+                    ? "客户端需要读取本机受保护的管理令牌。启动或重启一次服务通常可以修复。"
+                    : "启动本地服务后，就可以在这里管理 Provider 与运行设置。"
+            )
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: 440)
             HStack {
                 Button("启动服务") {
                     Task { await model.startService() }
                 }
                 .buttonStyle(.borderedProminent)
             }
-            Text("OpenCodex 2.12.0 内核已包含在应用中")
+            Text("兼容的 OpenCodex \(model.coreManager.compatibleRelease.version) 内核与应用分离安装")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }

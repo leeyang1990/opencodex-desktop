@@ -20,6 +20,7 @@
     · <a href="#界面预览">界面预览</a>
     · <a href="#开发">本地构建</a>
     · <a href="#安全边界">安全设计</a>
+    · <a href="#参与贡献">参与贡献</a>
     · <a href="#致谢">致谢</a>
   </p>
 </div>
@@ -81,7 +82,7 @@ OpenCodex Desktop 是独立、轻量的 macOS 启动器，不是 OpenCodex 的�
 
 | 组件 | 当前版本 |
 | :--- | :--- |
-| OpenCodex Desktop | `0.5.0` (`4`) |
+| OpenCodex Desktop | `0.6.1` (`6`) |
 | OpenCodex Core | `2.12.0` (`6d881db`) |
 | Bun | `1.3.14` |
 | macOS | `14.0` 或更高版本 |
@@ -117,6 +118,7 @@ OpenCodex Desktop/Core/                                          OpenCodex/Data/
 git clone https://github.com/leeyang1990/opencodex-desktop.git
 cd opencodex-desktop
 swift test
+./scripts/check-source-quality.sh
 ```
 
 生成 Apple Silicon 应用包：
@@ -138,10 +140,10 @@ dist/OpenCodex Desktop.app
 发布前先更新 `Info.plist` 中的版本号和构建号，然后在干净的 Git 工作区执行：
 
 ```bash
-./scripts/release.sh 0.5.0
+./scripts/release.sh 0.6.1
 ```
 
-脚本会依次运行测试、构建 Apple Silicon App、验证纯 `arm64` 架构及 ad-hoc 签名，并在 `dist/release/` 生成 GitHub Release 使用的 ZIP 和 SHA-256 文件。它不会打包 Core、运行时、Provider 配置、凭据或日志。
+脚本会依次运行测试、构建 Apple Silicon App、验证纯 `arm64` 架构及 ad-hoc 签名，并在 `dist/release/` 生成带“应用程序”快捷方式的 DMG、便携 ZIP 以及两者的 SHA-256 文件。它不会打包 Core、运行时、Provider 配置、凭据或日志。
 
 当前发布包使用免费的 ad-hoc 签名，未经 Apple 公证。用户首次启动时可右键应用并选择“打开”；若 Gatekeeper 仍然拦截，在确认下载文件的 SHA-256 与 Release 附件一致后执行：
 
@@ -154,11 +156,11 @@ xattr -dr com.apple.quarantine "/Applications/OpenCodex Desktop.app"
 仓库包含自动发布 Workflow。合并版本修改后创建并推送与 `Info.plist` 一致的 tag：
 
 ```bash
-git tag v0.5.0
-git push origin v0.5.0
+git tag v0.6.1
+git push origin v0.6.1
 ```
 
-GitHub Actions 会在 macOS ARM runner 上执行同一套测试、构建和校验流程，然后自动创建 GitHub Release、生成更新说明并上传 arm64 ZIP 与 SHA-256 文件。Workflow 不需要签名证书或自定义 Secret，仅使用 GitHub 自动提供且被限制为当前仓库的 token。
+GitHub Actions 会在 macOS ARM runner 上执行同一套测试、构建和校验流程，然后自动创建 GitHub Release、生成更新说明并上传 arm64 DMG、ZIP 与对应的 SHA-256 文件。Workflow 不需要签名证书或自定义 Secret，仅使用 GitHub 自动提供且被限制为当前仓库的 token。
 
 ## 项目结构
 
@@ -168,7 +170,12 @@ GitHub Actions 会在 macOS ARM runner 上执行同一套测试、构建和校�
 ├── Sources/OpenCodexDesktop/       # SwiftUI 客户端与内核安装器
 ├── Tests/OpenCodexDesktopTests/    # XCTest 测试
 ├── scripts/build-app.sh            # Apple Silicon 打包脚本
+├── scripts/check-source-quality.sh # Swift 格式和凭据模式检查
 ├── scripts/release.sh              # Release 校验、归档与校验和
+├── docs/API_CONTRACT.md             # 桌面端与 Core 的本地 API 契约
+├── CONTRIBUTING.md                  # 贡献与验证流程
+├── SECURITY.md                      # 漏洞报告和安全边界
+├── CHANGELOG.md                     # 版本变更记录
 ├── Info.plist                      # App Bundle 元数据
 ├── Package.swift                   # Swift Package 清单
 └── THIRD_PARTY_NOTICES.md          # 第三方组件声明
@@ -199,7 +206,13 @@ git clone --branch v2.12.0 --single-branch \
 - API Key、账号标识和请求正文不会被持久化到日志。
 - 下载产物必须使用固定 HTTPS 地址和精确摘要。
 - 桌面端更新内核前必须明确验证兼容版本。
+- 外部登录链接仅允许 OpenAI 与 ChatGPT 官方域名的 HTTPS 地址。
+- Core 数据、状态与日志使用仅当前用户可读写的文件权限。
 - 生成的 App、运行时、配置、凭据和日志不会纳入版本控制。
+
+## 参与贡献
+
+欢迎提交 Issue 和 Pull Request。开始前请阅读 [贡献指南](CONTRIBUTING.md)、[架构说明](docs/ARCHITECTURE.md)、[安全策略](SECURITY.md) 与 [Core API 契约](docs/API_CONTRACT.md)。用户可见变更会记录在 [CHANGELOG.md](CHANGELOG.md)；安全问题请通过 GitHub 私密漏洞报告渠道提交，不要公开附带密钥、账号标识或未脱敏配置。
 
 ## 致谢
 

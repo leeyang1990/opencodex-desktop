@@ -17,6 +17,18 @@ if [[ ! -f "$SOURCE_ICON" ]]; then
   exit 1
 fi
 
+ICON_WIDTH="$(sips -g pixelWidth "$SOURCE_ICON" | awk '/pixelWidth/ {print $2}')"
+ICON_HEIGHT="$(sips -g pixelHeight "$SOURCE_ICON" | awk '/pixelHeight/ {print $2}')"
+ICON_HAS_ALPHA="$(sips -g hasAlpha "$SOURCE_ICON" | awk '/hasAlpha/ {print $2}')"
+if [[ "$ICON_WIDTH" != "1024" || "$ICON_HEIGHT" != "1024" ]]; then
+  echo "App icon source must be exactly 1024 × 1024 pixels" >&2
+  exit 1
+fi
+if [[ "$ICON_HAS_ALPHA" != "yes" ]]; then
+  echo "App icon source must use an alpha channel for transparent macOS icon corners" >&2
+  exit 1
+fi
+
 cd "$PROJECT_DIR"
 swift build -c release --arch arm64
 BIN_PATH="$(swift build -c release --arch arm64 --show-bin-path)"

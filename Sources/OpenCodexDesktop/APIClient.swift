@@ -45,22 +45,31 @@ struct AdminTokenProvider {
         if FileManager.default.fileExists(atPath: managed.path) {
             return managed
         }
-        return homeDirectory
+        return
+            homeDirectory
             .appendingPathComponent(".opencodex", isDirectory: true)
             .appendingPathComponent("admin-api-token", isDirectory: false)
     }
 
     func load() -> String? {
-        if let environmentToken = environment["OPENCODEX_ADMIN_AUTH_TOKEN"]?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !environmentToken.isEmpty {
+        if let environmentToken = environment["OPENCODEX_ADMIN_AUTH_TOKEN"]?.trimmingCharacters(
+            in: .whitespacesAndNewlines),
+            !environmentToken.isEmpty
+        {
             return environmentToken
         }
-        guard let attributes = try? FileManager.default.attributesOfItem(atPath: tokenFileURL.path),
-              attributes[.type] as? FileAttributeType == .typeRegular,
-              let data = try? Data(contentsOf: tokenFileURL),
-              data.count <= 512,
-              let token = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-              token.range(of: #"^ocx_admin_[A-Za-z0-9_-]{43}$"#, options: .regularExpression) != nil else {
+        guard
+            let values = try? tokenFileURL.resourceValues(forKeys: [
+                .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey,
+            ]),
+            values.isRegularFile == true,
+            values.isSymbolicLink != true,
+            (values.fileSize ?? 513) <= 512,
+            let data = try? Data(contentsOf: tokenFileURL),
+            data.count <= 512,
+            let token = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+            token.range(of: #"^ocx_admin_[A-Za-z0-9_-]{43}$"#, options: .regularExpression) != nil
+        else {
             return nil
         }
         return token
@@ -92,7 +101,7 @@ actor OpenCodexAPIClient {
 
     func baseURL() throws -> URL {
         let normalizedHost = host.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard ["127.0.0.1", "localhost", "::1"].contains(normalizedHost) else {
+        guard AppConstants.Connection.loopbackHosts.contains(normalizedHost) else {
             throw OpenCodexAPIError.remoteManagementUnsupported
         }
         var components = URLComponents()
@@ -210,7 +219,9 @@ actor OpenCodexAPIClient {
         )
     }
 
-    func setProviderContextCap(provider: String, enabled: Bool, value: Int? = nil) async throws -> ProviderContextCapsResponse {
+    func setProviderContextCap(provider: String, enabled: Bool, value: Int? = nil) async throws
+        -> ProviderContextCapsResponse
+    {
         struct Body: Encodable {
             let provider: String
             let enabled: Bool
@@ -258,7 +269,8 @@ actor OpenCodexAPIClient {
             let provider: ProviderBody
             let setDefault: Bool
         }
-        let apiKeyTransport = draft.adapter == "anthropic" && draft.authMode == "key"
+        let apiKeyTransport =
+            draft.adapter == "anthropic" && draft.authMode == "key"
             ? draft.apiKeyTransport : nil
         let body = Body(
             name: draft.name.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -297,7 +309,8 @@ actor OpenCodexAPIClient {
             allowPrivateNetwork: draft.allowPrivateNetwork,
             liveModels: draft.liveModels
         )
-        let _: APIAcknowledgement = try await request(path: "/api/providers?name=\(queryName)", method: "PATCH", body: body)
+        let _: APIAcknowledgement = try await request(
+            path: "/api/providers?name=\(queryName)", method: "PATCH", body: body)
         if !draft.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             try await addAPIKey(provider: original.name, key: draft.apiKey)
         }
@@ -462,7 +475,9 @@ actor OpenCodexAPIClient {
         )
     }
 
-    func codexLoginStatus(flowId: String, accountId: String? = nil, reauth: Bool = false) async throws -> CodexLoginStatusResponse {
+    func codexLoginStatus(flowId: String, accountId: String? = nil, reauth: Bool = false) async throws
+        -> CodexLoginStatusResponse
+    {
         var components = URLComponents()
         components.queryItems = [URLQueryItem(name: "flowId", value: flowId)]
         if let accountId { components.queryItems?.append(URLQueryItem(name: "accountId", value: accountId)) }
@@ -507,7 +522,7 @@ actor OpenCodexAPIClient {
         guard let url = URL(string: path, relativeTo: base) else { throw OpenCodexAPIError.invalidAddress }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = 12
+        request.timeoutInterval = AppConstants.Connection.requestTimeout
         request.cachePolicy = .reloadIgnoringLocalCacheData
         if let bodyData {
             request.httpBody = bodyData
@@ -523,7 +538,8 @@ actor OpenCodexAPIClient {
             guard let http = response as? HTTPURLResponse else { throw OpenCodexAPIError.invalidResponse }
             if http.statusCode == 401 { throw OpenCodexAPIError.unauthorized }
             guard (200..<300).contains(http.statusCode) else {
-                let message = (try? JSONDecoder().decode(APIErrorBody.self, from: data).error)
+                let message =
+                    (try? JSONDecoder().decode(APIErrorBody.self, from: data).error)
                     ?? HTTPURLResponse.localizedString(forStatusCode: http.statusCode)
                 throw OpenCodexAPIError.server(status: http.statusCode, message: message)
             }
@@ -537,7 +553,9 @@ actor OpenCodexAPIClient {
             }
         } catch let error as OpenCodexAPIError {
             throw error
-        } catch let error as URLError where [.cannotConnectToHost, .networkConnectionLost, .timedOut, .cannotFindHost].contains(error.code) {
+        } catch let error as URLError
+            where [.cannotConnectToHost, .networkConnectionLost, .timedOut, .cannotFindHost].contains(error.code)
+        {
             throw OpenCodexAPIError.offline
         } catch {
             throw OpenCodexAPIError.transport(error.localizedDescription)

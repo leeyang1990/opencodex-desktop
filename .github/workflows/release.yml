@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Check out tagged source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
 
@@ -37,12 +37,16 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           archive="dist/release/OpenCodex-Desktop-v${version}-macOS-arm64.zip"
+          dmg="dist/release/OpenCodex-Desktop-v${version}-macOS-arm64.dmg"
           checksum="${archive}.sha256"
+          dmg_checksum="${dmg}.sha256"
 
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "$archive" "$checksum" --clobber
+            gh release upload "$GITHUB_REF_NAME" \
+              "$archive" "$checksum" "$dmg" "$dmg_checksum" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" "$archive" "$checksum" \
+            gh release create "$GITHUB_REF_NAME" \
+              "$archive" "$checksum" "$dmg" "$dmg_checksum" \
               --verify-tag \
               --generate-notes \
               --title "OpenCodex Desktop ${version}"

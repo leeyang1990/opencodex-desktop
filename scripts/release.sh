@@ -17,7 +17,7 @@ Usage: ./scripts/release.sh [options] [version]
 Build and package an ad-hoc-signed Apple Silicon macOS release.
 
 Arguments:
-  version          Expected CFBundleShortVersionString, for example 0.5.0.
+  version          Expected CFBundleShortVersionString, for example 0.6.0.
                    Defaults to the value in Info.plist.
 
 Options:
@@ -57,13 +57,14 @@ while (($#)); do
   shift
 done
 
-for command in codesign ditto git lipo plutil shasum swift; do
+for command in codesign ditto git hdiutil lipo plutil shasum sips swift; do
   command -v "$command" >/dev/null || fail "required command not found: $command"
 done
 
 [[ "$(uname -s)" == "Darwin" ]] || fail "macOS is required"
 [[ -f "$PLIST_PATH" ]] || fail "missing Info.plist"
 [[ -x "$SCRIPT_DIR/build-app.sh" ]] || fail "scripts/build-app.sh is not executable"
+[[ -x "$SCRIPT_DIR/check-source-quality.sh" ]] || fail "scripts/check-source-quality.sh is not executable"
 
 VERSION="$(plutil -extract CFBundleShortVersionString raw "$PLIST_PATH")"
 BUILD_NUMBER="$(plutil -extract CFBundleVersion raw "$PLIST_PATH")"
@@ -91,6 +92,8 @@ if [[ "$ALLOW_DIRTY" != true && -n "$(git status --porcelain --untracked-files=n
 fi
 
 echo "==> Releasing OpenCodex Desktop $VERSION ($BUILD_NUMBER)"
+echo "==> Checking source quality"
+"$SCRIPT_DIR/check-source-quality.sh"
 if [[ "$SKIP_TESTS" != true ]]; then
   echo "==> Running tests"
   swift test
@@ -108,6 +111,12 @@ APP_BUILD="$(plutil -extract CFBundleVersion raw "$APP_PATH/Contents/Info.plist"
 [[ "$APP_VERSION" == "$VERSION" && "$APP_BUILD" == "$BUILD_NUMBER" ]] \
   || fail "built app version does not match Info.plist"
 
+BUILT_ICON_LAYER="$PROJECT_DIR/.build/AppIcon.iconset/icon_512x512@2x.png"
+[[ -f "$BUILT_ICON_LAYER" ]] || fail "build did not produce the 1024px app icon layer"
+BUILT_ICON_ALPHA="$(sips -g hasAlpha "$BUILT_ICON_LAYER" | awk '/hasAlpha/ {print $2}')"
+[[ "$BUILT_ICON_ALPHA" == "yes" ]] \
+  || fail "built app icon lost its alpha channel; release packaging stopped"
+
 ARCHS="$(lipo -archs "$EXECUTABLE")"
 [[ "$ARCHS" == "arm64" ]] \
   || fail "built executable must contain only arm64 (found: $ARCHS)"
@@ -124,21 +133,42 @@ fi
 
 ARTIFACT_BASENAME="OpenCodex-Desktop-v${VERSION}-macOS-arm64"
 ZIP_NAME="$ARTIFACT_BASENAME.zip"
-CHECKSUM_NAME="$ZIP_NAME.sha256"
+DMG_NAME="$ARTIFACT_BASENAME.dmg"
+ZIP_CHECKSUM_NAME="$ZIP_NAME.sha256"
+DMG_CHECKSUM_NAME="$DMG_NAME.sha256"
+DMG_STAGING="$PROJECT_DIR/.build/release-dmg-staging"
 
 [[ "$RELEASE_DIR" == "$PROJECT_DIR/dist/release" ]] || fail "unexpected release directory"
+[[ "$DMG_STAGING" == "$PROJECT_DIR/.build/release-dmg-staging" ]] || fail "unexpected DMG staging directory"
 rm -rf "$RELEASE_DIR"
 mkdir -p "$RELEASE_DIR"
 
 echo "==> Creating $ZIP_NAME"
 ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$RELEASE_DIR/$ZIP_NAME"
 
+echo "==> Creating $DMG_NAME"
+rm -rf "$DMG_STAGING"
+mkdir -p "$DMG_STAGING"
+ditto "$APP_PATH" "$DMG_STAGING/OpenCodex Desktop.app"
+ln -s /Applications "$DMG_STAGING/Applications"
+hdiutil create \
+  -quiet \
+  -volname "OpenCodex Desktop" \
+  -srcfolder "$DMG_STAGING" \
+  -ov \
+  -format UDZO \
+  "$RELEASE_DIR/$DMG_NAME"
+hdiutil verify "$RELEASE_DIR/$DMG_NAME" >/dev/null
+rm -rf "$DMG_STAGING"
+
 (
   cd "$RELEASE_DIR"
-  shasum -a 256 "$ZIP_NAME" > "$CHECKSUM_NAME"
+  shasum -a 256 "$ZIP_NAME" > "$ZIP_CHECKSUM_NAME"
+  shasum -a 256 "$DMG_NAME" > "$DMG_CHECKSUM_NAME"
 )
 
-ARCHIVE_SIZE="$(du -h "$RELEASE_DIR/$ZIP_NAME" | awk '{print $1}')"
+ZIP_SIZE="$(du -h "$RELEASE_DIR/$ZIP_NAME" | awk '{print $1}')"
+DMG_SIZE="$(du -h "$RELEASE_DIR/$DMG_NAME" | awk '{print $1}')"
 COMMIT="$(git rev-parse --short=12 HEAD)"
 
 cat <<EOF
@@ -150,8 +180,10 @@ Release package ready:
   Architectures:$ARCHS
   Signing:      ad-hoc (not notarized)
   Commit:       $COMMIT
-  Archive:      dist/release/$ZIP_NAME ($ARCHIVE_SIZE)
-  Checksum:     dist/release/$CHECKSUM_NAME
+  ZIP:          dist/release/$ZIP_NAME ($ZIP_SIZE)
+  ZIP checksum: dist/release/$ZIP_CHECKSUM_NAME
+  DMG:          dist/release/$DMG_NAME ($DMG_SIZE)
+  DMG checksum: dist/release/$DMG_CHECKSUM_NAME
 
 Users may need to right-click Open on first launch. If Gatekeeper still blocks it:
   xattr -dr com.apple.quarantine "/Applications/OpenCodex Desktop.app"

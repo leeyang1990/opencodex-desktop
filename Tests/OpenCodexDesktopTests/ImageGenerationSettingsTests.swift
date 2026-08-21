@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+
 @testable import OpenCodexDesktop
 
 final class ImageGenerationSettingsTests: XCTestCase {
@@ -8,20 +9,25 @@ final class ImageGenerationSettingsTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("config.json")
-        try #"{"providers":{"new-api":{"adapter":"openai-chat","authMode":"key","apiKey":"secret","baseUrl":"https://example.com/v1"}},"port":10100}"#.data(using: .utf8)!.write(to: url)
+        try
+            #"{"providers":{"new-api":{"adapter":"openai-chat","authMode":"key","apiKey":"secret","baseUrl":"https://example.com/v1"}},"port":10100}"#
+            .data(using: .utf8)!.write(to: url)
         let store = ImageGenerationSettingsStore(configURL: url)
 
-        try store.save(ImageGenerationSettings(
-            usesCustomProvider: true,
-            provider: "new-api",
-            timeoutMs: 120_000
-        ))
+        try store.save(
+            ImageGenerationSettings(
+                usesCustomProvider: true,
+                provider: "new-api",
+                timeoutMs: 120_000
+            ))
 
-        XCTAssertEqual(try store.load(), ImageGenerationSettings(
-            usesCustomProvider: true,
-            provider: "new-api",
-            timeoutMs: 120_000
-        ))
+        XCTAssertEqual(
+            try store.load(),
+            ImageGenerationSettings(
+                usesCustomProvider: true,
+                provider: "new-api",
+                timeoutMs: 120_000
+            ))
         let root = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
         let providers = root["providers"] as! [String: Any]
         let originalProvider = providers["new-api"] as! [String: Any]
@@ -38,7 +44,9 @@ final class ImageGenerationSettingsTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let configURL = directory.appendingPathComponent("config.json")
         let stateURL = directory.appendingPathComponent("vision-routing.json")
-        try #"{"providers":{"new-api":{"adapter":"openai-chat","models":["vision-model"]},"openai":{"adapter":"openai-responses"}}}"#.data(using: .utf8)!.write(to: configURL)
+        try
+            #"{"providers":{"new-api":{"adapter":"openai-chat","models":["vision-model"]},"openai":{"adapter":"openai-responses"}}}"#
+            .data(using: .utf8)!.write(to: configURL)
         let store = VisionRoutingSettingsStore(configURL: configURL, stateURL: stateURL)
 
         try store.save(forceGPTVision: true)
@@ -61,7 +69,8 @@ final class ImageGenerationSettingsTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("config.json")
-        try #"{"images":{"provider":"custom","bridgeEnabled":true,"timeoutMs":60000}}"#.data(using: .utf8)!.write(to: url)
+        try #"{"images":{"provider":"custom","bridgeEnabled":true,"timeoutMs":60000}}"#.data(using: .utf8)!.write(
+            to: url)
         let store = ImageGenerationSettingsStore(configURL: url)
 
         try store.save(ImageGenerationSettings(usesCustomProvider: false, provider: "custom", timeoutMs: 300_000))

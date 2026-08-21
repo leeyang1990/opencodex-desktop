@@ -1,22 +1,24 @@
 import XCTest
+
 @testable import OpenCodexDesktop
 
 final class ModelsTests: XCTestCase {
     func testProviderDecodesRedactedManagementResponse() throws {
-        let data = Data(#"""
-        {
-          "name": "openrouter",
-          "adapter": "openai-chat",
-          "baseUrl": "https://openrouter.ai/api/v1",
-          "defaultModel": "openai/gpt-5",
-          "hasApiKey": true,
-          "allowPrivateNetwork": false,
-          "liveModels": true,
-          "models": [],
-          "authMode": "key",
-          "disabled": false
-        }
-        """#.utf8)
+        let data = Data(
+            #"""
+            {
+              "name": "openrouter",
+              "adapter": "openai-chat",
+              "baseUrl": "https://openrouter.ai/api/v1",
+              "defaultModel": "openai/gpt-5",
+              "hasApiKey": true,
+              "allowPrivateNetwork": false,
+              "liveModels": true,
+              "models": [],
+              "authMode": "key",
+              "disabled": false
+            }
+            """#.utf8)
 
         let provider = try JSONDecoder().decode(Provider.self, from: data)
 
@@ -43,16 +45,17 @@ final class ModelsTests: XCTestCase {
     }
 
     func testPresetAppliesKnownFields() throws {
-        let data = Data(#"""
-        {
-          "id": "anthropic",
-          "label": "Anthropic",
-          "adapter": "anthropic",
-          "baseUrl": "https://api.anthropic.com/v1",
-          "auth": "key",
-          "defaultModel": "claude-sonnet-4"
-        }
-        """#.utf8)
+        let data = Data(
+            #"""
+            {
+              "id": "anthropic",
+              "label": "Anthropic",
+              "adapter": "anthropic",
+              "baseUrl": "https://api.anthropic.com/v1",
+              "auth": "key",
+              "defaultModel": "claude-sonnet-4"
+            }
+            """#.utf8)
         let preset = try JSONDecoder().decode(ProviderPreset.self, from: data)
         var draft = ProviderDraft()
 
@@ -64,21 +67,22 @@ final class ModelsTests: XCTestCase {
     }
 
     func testCodexAccountDecodesMaskedManagementResponse() throws {
-        let data = Data(#"""
-        {
-          "id": "__main__",
-          "email": "l***0@gmail.com",
-          "plan": "pro",
-          "isMain": true,
-          "paused": false,
-          "priority": 0,
-          "hasCredential": true,
-          "needsReauth": false,
-          "quota": { "weeklyPercent": 14, "weeklyResetAt": 1787011132 },
-          "health": { "status": "healthy" },
-          "healthLabel": "Healthy"
-        }
-        """#.utf8)
+        let data = Data(
+            #"""
+            {
+              "id": "__main__",
+              "email": "l***0@gmail.com",
+              "plan": "pro",
+              "isMain": true,
+              "paused": false,
+              "priority": 0,
+              "hasCredential": true,
+              "needsReauth": false,
+              "quota": { "weeklyPercent": 14, "weeklyResetAt": 1787011132 },
+              "health": { "status": "healthy" },
+              "healthLabel": "Healthy"
+            }
+            """#.utf8)
 
         let account = try JSONDecoder().decode(CodexAccount.self, from: data)
 
@@ -89,17 +93,18 @@ final class ModelsTests: XCTestCase {
     }
 
     func testAccountPoolStatusDecodesRotationStrategy() throws {
-        let data = Data(#"""
-        {
-          "activeCodexAccountId": "__main__",
-          "pinned": false,
-          "pinnedAccountId": null,
-          "autoSwitchThreshold": 80,
-          "upstreamFailoverThreshold": 3,
-          "accountPoolStrategy": "round-robin",
-          "accountPoolStickyLimit": 1
-        }
-        """#.utf8)
+        let data = Data(
+            #"""
+            {
+              "activeCodexAccountId": "__main__",
+              "pinned": false,
+              "pinnedAccountId": null,
+              "autoSwitchThreshold": 80,
+              "upstreamFailoverThreshold": 3,
+              "accountPoolStrategy": "round-robin",
+              "accountPoolStickyLimit": 1
+            }
+            """#.utf8)
 
         let status = try JSONDecoder().decode(CodexAccountPoolStatus.self, from: data)
 
@@ -108,20 +113,21 @@ final class ModelsTests: XCTestCase {
     }
 
     func testManagedModelDecodesCatalogCapabilities() throws {
-        let data = Data(#"""
-        {
-          "provider": "openrouter",
-          "id": "anthropic/claude-sonnet-4.5",
-          "namespaced": "openrouter/anthropic%2Fclaude-sonnet-4.5",
-          "disabled": false,
-          "custom": true,
-          "customId": "model-1",
-          "displayName": "Claude Sonnet 4.5",
-          "contextWindow": 200000,
-          "inputModalities": ["text", "image"],
-          "reasoningEfforts": ["low", "high"]
-        }
-        """#.utf8)
+        let data = Data(
+            #"""
+            {
+              "provider": "openrouter",
+              "id": "anthropic/claude-sonnet-4.5",
+              "namespaced": "openrouter/anthropic%2Fclaude-sonnet-4.5",
+              "disabled": false,
+              "custom": true,
+              "customId": "model-1",
+              "displayName": "Claude Sonnet 4.5",
+              "contextWindow": 200000,
+              "inputModalities": ["text", "image"],
+              "reasoningEfforts": ["low", "high"]
+            }
+            """#.utf8)
 
         let item = try JSONDecoder().decode(ManagedModel.self, from: data)
 
@@ -149,20 +155,21 @@ final class ModelsTests: XCTestCase {
     }
 
     func testProviderMutationDecodesCatalogRefreshFailure() throws {
-        let data = Data(#"""
-        {
-          "success": true,
-          "name": "litellm-local",
-          "disabled": true,
-          "catalogRefresh": {
-            "status": "failed",
-            "reason": "disk",
-            "phase": "gather",
-            "retryable": false,
-            "partialWrite": false
-          }
-        }
-        """#.utf8)
+        let data = Data(
+            #"""
+            {
+              "success": true,
+              "name": "litellm-local",
+              "disabled": true,
+              "catalogRefresh": {
+                "status": "failed",
+                "reason": "disk",
+                "phase": "gather",
+                "retryable": false,
+                "partialWrite": false
+              }
+            }
+            """#.utf8)
 
         let response = try JSONDecoder().decode(APIAcknowledgement.self, from: data)
 
@@ -171,17 +178,18 @@ final class ModelsTests: XCTestCase {
     }
 
     func testCommittedCatalogRefreshDoesNotNeedFallback() throws {
-        let data = Data(#"""
-        {
-          "success": true,
-          "catalogRefresh": {
-            "status": "committed",
-            "changed": true,
-            "degraded": false,
-            "notices": []
-          }
-        }
-        """#.utf8)
+        let data = Data(
+            #"""
+            {
+              "success": true,
+              "catalogRefresh": {
+                "status": "committed",
+                "changed": true,
+                "degraded": false,
+                "notices": []
+              }
+            }
+            """#.utf8)
 
         let response = try JSONDecoder().decode(APIAcknowledgement.self, from: data)
 
@@ -206,6 +214,20 @@ final class AdminTokenProviderTests: XCTestCase {
         )
 
         XCTAssertEqual(provider.tokenFileURL.path, "/tmp/custom-ocx/admin-api-token")
+    }
+
+    func testRejectsSymbolicLinkTokenFile() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let target = directory.appendingPathComponent("real-token")
+        let link = directory.appendingPathComponent("admin-api-token")
+        try Data("ocx_admin_\(String(repeating: "a", count: 43))".utf8).write(to: target)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+        let provider = AdminTokenProvider(environment: ["OPENCODEX_HOME": directory.path])
+
+        XCTAssertNil(provider.load())
     }
 }
 

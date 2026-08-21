@@ -287,7 +287,8 @@ struct CustomModelDraft: Equatable {
         if trimmedID.contains("/") { return "模型 ID 不能包含斜杠" }
         if displayName.contains("/") { return "显示名称不能包含斜杠" }
         if !contextWindow.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           parsedContextWindow.map({ $0 > 0 }) != true {
+            parsedContextWindow.map({ $0 > 0 }) != true
+        {
             return "上下文窗口必须是正整数"
         }
         if modalities.isEmpty { return "至少选择一种输入类型" }
@@ -499,9 +500,20 @@ struct ProviderDraft: Equatable {
         let valid = name.range(of: #"^[A-Za-z0-9._-]+$"#, options: .regularExpression) != nil
         if !valid { return "名称只能包含字母、数字、点、下划线和连字符" }
         if adapter.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "请选择适配器" }
-        guard let url = URL(string: baseUrl), let scheme = url.scheme, ["http", "https"].contains(scheme), url.host != nil else {
+        guard let url = URL(string: baseUrl), let scheme = url.scheme, ["http", "https"].contains(scheme),
+            url.host != nil
+        else {
             return "请输入有效的 HTTP(S) 地址"
         }
         return nil
+    }
+
+    var transportSecurityWarning: String? {
+        guard let url = URL(string: baseUrl),
+            url.scheme?.lowercased() == "http",
+            let host = url.host?.lowercased(),
+            !AppConstants.Connection.loopbackHosts.contains(host)
+        else { return nil }
+        return "该 Provider 使用未加密 HTTP；API Key 和请求内容可能被网络中的其他设备读取。"
     }
 }
