@@ -22,7 +22,7 @@ All notable changes to OpenCodex Desktop are documented here. The project follow
 
 ### Tests
 
-- Add request-header, unauthorized-response, login URL, Provider transport, and file-permission coverage.
+- Add request-header, unauthorized-response, login URL, Provider transport, file-permission, and app-icon coverage.
 
 ## 0.6.0 - 2026-08-20
 
