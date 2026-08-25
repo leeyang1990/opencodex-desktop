@@ -28,6 +28,8 @@ final class AppModel: ObservableObject {
     @Published var busyModelProvider: String?
     @Published var operationMessage: String?
     @Published var errorMessage: String?
+    @Published var environmentReport = EnvironmentCheckReport.empty
+    @Published var showsFirstLaunchEnvironmentCheck = false
 
     @Published var connectionHost: String
     @Published var connectionPort: Int
@@ -66,9 +68,12 @@ final class AppModel: ObservableObject {
     func bootstrap() async {
         coreManager.refreshInstallation()
         forceGPTVision = visionRoutingSettingsStore.load()
+        runEnvironmentCheck(presentOnFirstLaunch: true)
         await refresh()
-        guard connectionState == .offline, coreManager.installationState.isInstalled else { return }
-        await startService()
+        if connectionState == .offline, coreManager.installationState.isInstalled {
+            await startService()
+            runEnvironmentCheck()
+        }
     }
 
     func refresh(showSpinner: Bool = true) async {

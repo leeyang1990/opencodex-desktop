@@ -46,8 +46,8 @@ extension AppModel {
         defer { isRefreshing = false }
         do {
             if isOnline || coreManager.ownsRunningProcess { await stopService() }
-            try await coreManager.installCompatibleCore()
-            operationMessage = "OpenCodex Core \(coreManager.compatibleRelease.version) 已安装"
+            try await coreManager.installTargetCore()
+            operationMessage = "OpenCodex Core \(coreManager.targetRelease.version) 已安装"
             await startService()
         } catch {
             errorMessage = error.localizedDescription
@@ -59,7 +59,7 @@ extension AppModel {
         defer { isRefreshing = false }
         do {
             if isOnline || coreManager.ownsRunningProcess { await stopService() }
-            try await coreManager.uninstallCompatibleCore()
+            try await coreManager.uninstallTargetCore()
             await refresh(showSpinner: false)
             operationMessage = "内核已卸载，配置与账号数据已保留"
         } catch {

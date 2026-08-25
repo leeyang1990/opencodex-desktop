@@ -30,6 +30,7 @@ struct SettingsView: View {
 
                 connectionSection
                 coreSection
+                environmentCheckSection
 
                 if model.isOnline {
                     runtimeSection
@@ -46,8 +47,12 @@ struct SettingsView: View {
             .frame(maxWidth: 820, alignment: .leading)
         }
         .background(Color(nsColor: .windowBackgroundColor))
-        .onAppear(perform: loadValues)
+        .onAppear {
+            loadValues()
+            model.runEnvironmentCheck()
+        }
         .onChange(of: model.settings?.port) { _, _ in loadValues() }
+        .onChange(of: model.settings?.codexRuntime?.version) { _, _ in model.runEnvironmentCheck() }
         .confirmationDialog(
             "卸载 OpenCodex 内核？",
             isPresented: $confirmUninstall,

@@ -27,8 +27,27 @@ struct CoreRelease: Sendable, Equatable {
     let package: DownloadArtifact
     let lockfile: DownloadArtifact
     let bunVersion: String
+    let bunArm64SHA256: String
+    let bunX64SHA256: String
 
-    static let compatible = CoreRelease(
+}
+
+enum CoreVersionMode: String, CaseIterable, Identifiable, Sendable {
+    case build
+    case custom
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .build: "构建版本"
+        case .custom: "自选版本"
+        }
+    }
+}
+
+enum CoreReleaseCatalog {
+    static let build = CoreRelease(
         version: "2.12.0",
         commit: "6d881db206c6a74da6b64fa22b6980faf05d0122",
         package: DownloadArtifact(
@@ -42,16 +61,83 @@ struct CoreRelease: Sendable, Equatable {
             )!,
             sha256: "a22537a6b5f7c67c3043c1c112d90122e0a1874d0704b5ce997f8e855975d103"
         ),
-        bunVersion: "1.3.14"
+        bunVersion: "1.3.14",
+        bunArm64SHA256: "d8b96221828ad6f97ac7ac0ab7e95872341af763001e8803e8267652c2652620",
+        bunX64SHA256: "4183df3374623e5bab315c547cfa0974533cd457d86b73b639f7a87974cd6633"
     )
+
+    static let userSelectable = [
+        CoreRelease(
+            version: "2.31.0",
+            commit: "6ae83b1f189c353935d4977bb01227484fbdb52b",
+            package: DownloadArtifact(
+                url: URL(string: "https://registry.npmjs.org/@bitkyc08/opencodex/-/opencodex-2.31.0.tgz")!,
+                sha256: "a7454788c532de12fd323c7cac54c7394bd92137d2a3ad6aad5443f684f85603"
+            ),
+            lockfile: DownloadArtifact(
+                url: URL(
+                    string:
+                        "https://raw.githubusercontent.com/lidge-jun/opencodex/6ae83b1f189c353935d4977bb01227484fbdb52b/bun.lock"
+                )!,
+                sha256: "29a6cf6ad4c475b5ec0fbcc104b032fbdb293fed12eb17d803ce626481e7e2f5"
+            ),
+            bunVersion: "1.4.0",
+            bunArm64SHA256: "c669e97f6164e1c96e0701748db98dfa77492908cbd8394c7557134a735de381",
+            bunX64SHA256: "1d0211b8f1dc991182344687ad15e72ee86f154845a5f7fa477994cd341dd9b0"
+        ),
+        CoreRelease(
+            version: "2.29.0",
+            commit: "231e622be00706677a9e721496e4858a7ccee13e",
+            package: DownloadArtifact(
+                url: URL(string: "https://registry.npmjs.org/@bitkyc08/opencodex/-/opencodex-2.29.0.tgz")!,
+                sha256: "4832802bd6bc2bde3c74724d29d7e52a372a99eb24c40f5fb65fd5c0ed46326a"
+            ),
+            lockfile: DownloadArtifact(
+                url: URL(
+                    string:
+                        "https://raw.githubusercontent.com/lidge-jun/opencodex/231e622be00706677a9e721496e4858a7ccee13e/bun.lock"
+                )!,
+                sha256: "dbbd8ffc7f0fc893dbf15cb96552b9ba044a4ffaf0447ac5f6c1817b9ec48ca2"
+            ),
+            bunVersion: "1.3.14",
+            bunArm64SHA256: "d8b96221828ad6f97ac7ac0ab7e95872341af763001e8803e8267652c2652620",
+            bunX64SHA256: "4183df3374623e5bab315c547cfa0974533cd457d86b73b639f7a87974cd6633"
+        ),
+    ]
+
+    static var all: [CoreRelease] { [build] + userSelectable }
+
+    static func resolve(mode: CoreVersionMode, customVersion: String?) -> CoreRelease {
+        guard mode == .custom,
+            let customVersion,
+            let release = userSelectable.first(where: { $0.version == customVersion })
+        else { return build }
+        return release
+    }
+
+    static func normalizedSelection(modeRawValue: String?, customVersion: String?) -> (
+        mode: CoreVersionMode,
+        customVersion: String?
+    ) {
+        guard modeRawValue == CoreVersionMode.custom.rawValue,
+            let customVersion,
+            userSelectable.contains(where: { $0.version == customVersion })
+        else { return (.build, nil) }
+        return (.custom, customVersion)
+    }
+}
+
+extension CoreRelease {
 
     var bunArtifact: BunArtifact {
         #if arch(arm64)
             BunArtifact(
                 archive: DownloadArtifact(
                     url: URL(
-                        string: "https://github.com/oven-sh/bun/releases/download/bun-v1.3.14/bun-darwin-aarch64.zip")!,
-                    sha256: "d8b96221828ad6f97ac7ac0ab7e95872341af763001e8803e8267652c2652620"
+                        string:
+                            "https://github.com/oven-sh/bun/releases/download/bun-v\(bunVersion)/bun-darwin-aarch64.zip"
+                    )!,
+                    sha256: bunArm64SHA256
                 ),
                 archiveDirectory: "bun-darwin-aarch64"
             )
@@ -59,8 +145,10 @@ struct CoreRelease: Sendable, Equatable {
             BunArtifact(
                 archive: DownloadArtifact(
                     url: URL(
-                        string: "https://github.com/oven-sh/bun/releases/download/bun-v1.3.14/bun-darwin-x64.zip")!,
-                    sha256: "4183df3374623e5bab315c547cfa0974533cd457d86b73b639f7a87974cd6633"
+                        string:
+                            "https://github.com/oven-sh/bun/releases/download/bun-v\(bunVersion)/bun-darwin-x64.zip"
+                    )!,
+                    sha256: bunX64SHA256
                 ),
                 archiveDirectory: "bun-darwin-x64"
             )
@@ -143,6 +231,112 @@ enum CoreInstallationPaths {
     }
 }
 
+enum CodexRuntimeEnvironment {
+    private struct PersistedRuntime: Decodable {
+        let command: String
+    }
+
+    static func prepared(
+        from base: [String: String],
+        dataDirectory: URL,
+        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+        fileManager: FileManager = .default
+    ) -> [String: String] {
+        var environment = base
+        var directories: [URL] = []
+
+        if let configuredPath = base["CODEX_CLI_PATH"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+            let directory = executableDirectory(for: configuredPath, fileManager: fileManager)
+        {
+            directories.append(directory)
+        }
+        if let directory = persistedRuntimeDirectory(in: dataDirectory, fileManager: fileManager) {
+            directories.append(directory)
+        }
+
+        directories.append(contentsOf: versionManagerDirectories(in: homeDirectory, fileManager: fileManager))
+        directories.append(contentsOf: [
+            homeDirectory.appendingPathComponent(".local/bin", isDirectory: true),
+            homeDirectory.appendingPathComponent(".npm-global/bin", isDirectory: true),
+            homeDirectory.appendingPathComponent(".bun/bin", isDirectory: true),
+            homeDirectory.appendingPathComponent(".volta/bin", isDirectory: true),
+            URL(fileURLWithPath: "/Applications/ChatGPT.app/Contents/Resources", isDirectory: true),
+            URL(fileURLWithPath: "/Applications/Codex.app/Contents/Resources", isDirectory: true),
+            homeDirectory.appendingPathComponent("Applications/ChatGPT.app/Contents/Resources", isDirectory: true),
+            homeDirectory.appendingPathComponent("Applications/Codex.app/Contents/Resources", isDirectory: true),
+            URL(fileURLWithPath: "/opt/homebrew/bin", isDirectory: true),
+            URL(fileURLWithPath: "/usr/local/bin", isDirectory: true),
+        ])
+
+        let discovered = directories.compactMap { directory -> String? in
+            let codex = directory.appendingPathComponent("codex", isDirectory: false)
+            return fileManager.isExecutableFile(atPath: codex.path) ? directory.path : nil
+        }
+        let existing = (base["PATH"] ?? "")
+            .split(separator: ":")
+            .map(String.init)
+        environment["PATH"] = unique(discovered + existing).joined(separator: ":")
+        return environment
+    }
+
+    static func detectedCodexCommand(
+        in environment: [String: String],
+        fileManager: FileManager = .default
+    ) -> String? {
+        if let configured = environment["CODEX_CLI_PATH"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+            executableDirectory(for: configured, fileManager: fileManager) != nil
+        {
+            return configured
+        }
+        for directory in (environment["PATH"] ?? "").split(separator: ":").map(String.init) {
+            let candidate = URL(fileURLWithPath: directory, isDirectory: true)
+                .appendingPathComponent("codex", isDirectory: false)
+            if fileManager.isExecutableFile(atPath: candidate.path) { return candidate.path }
+        }
+        return nil
+    }
+
+    private static func persistedRuntimeDirectory(in dataDirectory: URL, fileManager: FileManager) -> URL? {
+        let stateURL = dataDirectory.appendingPathComponent("codex-runtime.json", isDirectory: false)
+        guard
+            let values = try? stateURL.resourceValues(forKeys: [
+                .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey,
+            ]),
+            values.isRegularFile == true,
+            values.isSymbolicLink != true,
+            (values.fileSize ?? 16_385) <= 16_384,
+            let data = try? Data(contentsOf: stateURL),
+            data.count <= 16_384,
+            let state = try? JSONDecoder().decode(PersistedRuntime.self, from: data)
+        else { return nil }
+        return executableDirectory(for: state.command, fileManager: fileManager)
+    }
+
+    private static func executableDirectory(for path: String, fileManager: FileManager) -> URL? {
+        guard path.hasPrefix("/"), fileManager.isExecutableFile(atPath: path) else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: false).deletingLastPathComponent()
+    }
+
+    private static func versionManagerDirectories(in homeDirectory: URL, fileManager: FileManager) -> [URL] {
+        let nodeVersions = homeDirectory.appendingPathComponent(".nvm/versions/node", isDirectory: true)
+        let versions =
+            (try? fileManager.contentsOfDirectory(
+                at: nodeVersions,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )) ?? []
+        return
+            versions
+            .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedDescending }
+            .map { $0.appendingPathComponent("bin", isDirectory: true) }
+    }
+
+    private static func unique(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.filter { !$0.isEmpty && seen.insert($0).inserted }
+    }
+}
+
 enum CoreInstallationState: Equatable {
     case checking
     case notInstalled
@@ -172,6 +366,7 @@ enum CoreManagerError: LocalizedError {
     case checksumMismatch(String)
     case commandFailed(String)
     case invalidInstallation
+    case untrustedVersion(String)
     case launchFailed(String)
     case stoppedUnexpectedly(String)
 
@@ -193,6 +388,8 @@ enum CoreManagerError: LocalizedError {
             message
         case .invalidInstallation:
             "内核安装不完整，请重新安装"
+        case let .untrustedVersion(version):
+            "Core \(version) 不在客户端的可信版本目录中"
         case let .launchFailed(message):
             message.isEmpty ? "OpenCodex 内核启动失败" : message
         case let .stoppedUnexpectedly(message):
@@ -456,38 +653,88 @@ actor CoreInstaller {
 final class CoreManager: ObservableObject {
     static let shared = CoreManager()
 
+    private static let versionModeDefaultsKey = "coreVersionMode"
+    private static let customVersionDefaultsKey = "customCoreVersion"
+
     @Published private(set) var installationState: CoreInstallationState = .checking
     @Published private(set) var ownsRunningProcess = false
     @Published private(set) var lastExitMessage: String?
+    @Published private(set) var versionMode: CoreVersionMode
+    @Published private(set) var customVersion: String?
 
-    let compatibleRelease = CoreRelease.compatible
+    let buildRelease = CoreReleaseCatalog.build
+    let userSelectableReleases = CoreReleaseCatalog.userSelectable
     private let installer = CoreInstaller()
+    private let defaults: UserDefaults
     private var process: Process?
     private var logHandle: FileHandle?
     private var stopRequested = false
 
-    private init() {
+    var targetRelease: CoreRelease {
+        CoreReleaseCatalog.resolve(mode: versionMode, customVersion: customVersion)
+    }
+
+    var targetIsBuildRelease: Bool { targetRelease.version == buildRelease.version }
+
+    private init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        let selection = CoreReleaseCatalog.normalizedSelection(
+            modeRawValue: defaults.string(forKey: Self.versionModeDefaultsKey),
+            customVersion: defaults.string(forKey: Self.customVersionDefaultsKey)
+        )
+        versionMode = selection.mode
+        customVersion = selection.customVersion
         refreshInstallation()
     }
 
+    func setVersionMode(_ mode: CoreVersionMode) {
+        if mode == .custom, customVersion == nil {
+            customVersion = userSelectableReleases.first?.version
+        }
+        versionMode = mode
+        persistVersionSelection()
+        refreshInstallation()
+    }
+
+    func selectCustomVersion(_ version: String) throws {
+        guard userSelectableReleases.contains(where: { $0.version == version }) else {
+            throw CoreManagerError.untrustedVersion(version)
+        }
+        customVersion = version
+        versionMode = .custom
+        persistVersionSelection()
+        refreshInstallation()
+    }
+
+    private func persistVersionSelection() {
+        defaults.set(versionMode.rawValue, forKey: Self.versionModeDefaultsKey)
+        if let customVersion {
+            defaults.set(customVersion, forKey: Self.customVersionDefaultsKey)
+        } else {
+            defaults.removeObject(forKey: Self.customVersionDefaultsKey)
+        }
+    }
+
     func refreshInstallation() {
+        let targetRelease = targetRelease
         let manifests = Self.discoverInstalledCores()
-        if let compatible = manifests.first(where: { Self.isCompatibleManifest($0, with: compatibleRelease) }),
+        if let compatible = manifests.first(where: { Self.isCompatibleManifest($0, with: targetRelease) }),
             Self.isValidInstallation(compatible)
         {
             installationState = .installed(compatible)
         } else if let existing = manifests.first(where: Self.isValidInstallation) {
-            installationState = .updateAvailable(installed: existing, target: compatibleRelease)
+            installationState = .updateAvailable(installed: existing, target: targetRelease)
         } else {
             installationState = .notInstalled
         }
     }
 
-    func installCompatibleCore() async throws {
+    func installTargetCore() async throws {
+        let targetRelease = targetRelease
         installationState = .installing("正在准备安装…")
         do {
             let manager = self
-            let manifest = try await installer.install(release: compatibleRelease) { phase in
+            let manifest = try await installer.install(release: targetRelease) { phase in
                 await manager.reportInstallationPhase(phase)
             }
             installationState = .installed(manifest)
@@ -497,9 +744,9 @@ final class CoreManager: ObservableObject {
         }
     }
 
-    func uninstallCompatibleCore() async throws {
+    func uninstallTargetCore() async throws {
         await stop()
-        try await installer.uninstall(version: compatibleRelease.version)
+        try await installer.uninstall(version: targetRelease.version)
         refreshInstallation()
     }
 
@@ -510,7 +757,7 @@ final class CoreManager: ObservableObject {
         }
         refreshInstallation()
         guard installationState.isInstalled else { throw CoreManagerError.notInstalled }
-        let paths = CoreInstallationPaths.paths(for: compatibleRelease.version)
+        let paths = CoreInstallationPaths.paths(for: targetRelease.version)
         guard FileManager.default.isExecutableFile(atPath: paths.runtimeExecutable.path),
             FileManager.default.fileExists(atPath: paths.cliEntry.path)
         else {
@@ -524,7 +771,10 @@ final class CoreManager: ObservableObject {
         process.currentDirectoryURL = paths.sourceRoot
         process.standardOutput = handle
         process.standardError = handle
-        var environment = ProcessInfo.processInfo.environment
+        var environment = CodexRuntimeEnvironment.prepared(
+            from: ProcessInfo.processInfo.environment,
+            dataDirectory: paths.dataDirectory
+        )
         environment["OPENCODEX_HOME"] = paths.dataDirectory.path
         environment["OPENCODEX_AGENT_DRIVEN"] = "1"
         environment["OPENCODEX_BUN_PATH"] = paths.runtimeExecutable.path

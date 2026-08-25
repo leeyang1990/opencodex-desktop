@@ -18,6 +18,11 @@ struct RootView: View {
         } message: {
             Text(model.errorMessage ?? "未知错误")
         }
+        .sheet(isPresented: $model.showsFirstLaunchEnvironmentCheck) {
+            FirstLaunchEnvironmentCheckView()
+                .environmentObject(model)
+                .interactiveDismissDisabled()
+        }
         .overlay(alignment: .bottomTrailing) {
             if let message = model.operationMessage {
                 toast(message)
@@ -31,18 +36,12 @@ struct RootView: View {
     private var sidebar: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                Image(systemName: "point.3.filled.connected.trianglepath.dotted")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 34, height: 34)
-                    .background(
-                        LinearGradient(
-                            colors: [AppPalette.accent, Color(red: 0.55, green: 0.32, blue: 0.93)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    )
+                Image(nsImage: NSApplication.shared.applicationIconImage)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("OpenCodex Desktop")
                         .font(.headline)

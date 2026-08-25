@@ -134,7 +134,7 @@ struct OverviewView: View {
                 }
                 .buttonStyle(.borderedProminent)
             }
-            Text("兼容的 OpenCodex \(model.coreManager.compatibleRelease.version) 内核与应用分离安装")
+            Text("已选择 OpenCodex \(model.coreManager.targetRelease.version) 内核，与应用分离安装")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }

@@ -4,6 +4,18 @@ All notable changes to OpenCodex Desktop are documented here. The project follow
 
 ## Unreleased
 
+## 0.7.0 - 2026-08-25
+
+### Added
+
+- Add a first-launch environment check and a reusable Settings diagnostic for local storage, Core, management-token, Codex runtime, and login-item status.
+- Add a Core version policy with a regression-tested build version and an explicitly selected, digest-pinned trusted version.
+
+### Fixed
+
+- Preserve the configured Codex CLI runtime when the desktop app starts from Finder with a minimal system `PATH`.
+- Use the packaged application icon in the sidebar brand header instead of an unrelated system symbol.
+
 ## 0.6.1 - 2026-08-21
 
 ### Security

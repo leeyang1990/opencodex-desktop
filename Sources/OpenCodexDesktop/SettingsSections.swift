@@ -2,6 +2,33 @@ import AppKit
 import SwiftUI
 
 extension SettingsView {
+    var environmentCheckSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                sectionHeader("环境与权限检查", symbol: "checkmark.shield")
+                Spacer()
+                Button("重新检查") { model.runEnvironmentCheck() }
+            }
+
+            EnvironmentCheckList(report: model.environmentReport)
+
+            if model.environmentReport.requiresLoginItemApproval {
+                HStack {
+                    Text("登录项需要在系统设置中由你明确批准。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("打开登录项设置") { loginItem.openSystemSettings() }
+                }
+            }
+
+            Text("自检只验证本机路径、文件访问和运行时状态，不读取 Provider 密钥，也不会申请完全磁盘访问、辅助功能或屏幕录制权限。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .cardStyle()
+    }
+
     var connectionSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             sectionHeader("连接", symbol: "network")
@@ -111,11 +138,14 @@ extension SettingsView {
             HStack {
                 sectionHeader("OpenCodex 内核", symbol: "shippingbox")
                 Spacer()
-                Text("兼容版本 \(coreManager.compatibleRelease.version)")
+                Text("已选择 \(coreManager.targetRelease.version)")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
 
+            coreVersionSelection
+
+            Divider()
             coreInstallationStatus
 
             Divider()
@@ -155,9 +185,11 @@ extension SettingsView {
                 if coreManager.installationState.isInstalled {
                     Button("卸载", role: .destructive) { confirmUninstall = true }
                     Button("重新安装") { Task { await model.installCore() } }
-                    if model.isOnline {
-                        Button("Web 控制台") { model.openDashboard() }
-                        Button("停止服务", role: .destructive) {
+                    if model.isOnline || coreManager.ownsRunningProcess {
+                        if model.isOnline {
+                            Button("Web 控制台") { model.openDashboard() }
+                        }
+                        Button(model.isOnline ? "停止服务" : "停止启动", role: .destructive) {
                             Task { await model.stopService() }
                         }
                     } else {
@@ -168,6 +200,74 @@ extension SettingsView {
             }
         }
         .cardStyle()
+    }
+
+    var coreVersionSelection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            settingRow(
+                title: "版本策略",
+                detail: coreManager.versionMode == .build
+                    ? "使用随当前客户端发布并完成回归验证的默认内核"
+                    : "从客户端内置的可信版本目录中选择；下载制品仍会进行完整摘要校验"
+            ) {
+                Picker("", selection: coreVersionModeBinding) {
+                    ForEach(CoreVersionMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .frame(width: 220)
+                .disabled(coreVersionSelectionDisabled)
+            }
+
+            if coreManager.versionMode == .custom {
+                settingRow(
+                    title: "选择 Core",
+                    detail: "自选版本未随本客户端完整回归；启动失败时可切回构建版本，已有版本目录会保留。"
+                ) {
+                    Picker("", selection: customCoreVersionBinding) {
+                        ForEach(coreManager.userSelectableReleases, id: \.version) { release in
+                            Text("\(release.version) · Bun \(release.bunVersion)")
+                                .tag(release.version)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 220)
+                    .disabled(coreVersionSelectionDisabled)
+                }
+            }
+
+            if coreVersionSelectionDisabled {
+                Label("停止当前服务后才能切换内核版本。", systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    var coreVersionModeBinding: Binding<CoreVersionMode> {
+        Binding(
+            get: { coreManager.versionMode },
+            set: { coreManager.setVersionMode($0) }
+        )
+    }
+
+    var customCoreVersionBinding: Binding<String> {
+        Binding(
+            get: { coreManager.customVersion ?? coreManager.userSelectableReleases.first?.version ?? "" },
+            set: { version in
+                do {
+                    try coreManager.selectCustomVersion(version)
+                } catch {
+                    model.errorMessage = error.localizedDescription
+                }
+            }
+        )
+    }
+
+    var coreVersionSelectionDisabled: Bool {
+        model.isOnline || coreManager.ownsRunningProcess || coreManager.installationState.isBusy
     }
 
     var imageGenerationSection: some View {
@@ -286,7 +386,7 @@ extension SettingsView {
             HStack(spacing: 12) {
                 ProgressView().controlSize(.small)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("正在安装 Core \(coreManager.compatibleRelease.version)")
+                    Text("正在安装 Core \(coreManager.targetRelease.version)")
                         .font(.callout.weight(.medium))
                     Text(phase).font(.caption).foregroundStyle(.secondary)
                 }
@@ -296,16 +396,17 @@ extension SettingsView {
                 symbol: "checkmark.seal.fill",
                 color: AppPalette.success,
                 title: "OpenCodex Core \(manifest.coreVersion)",
-                detail: "提交 \(String(manifest.coreCommit.prefix(7))) · Bun \(manifest.bunVersion) · 与应用分离安装"
+                detail:
+                    "\(coreManager.targetIsBuildRelease ? "构建版本" : "自选版本") · 提交 \(String(manifest.coreCommit.prefix(7))) · Bun \(manifest.bunVersion)"
             ) { EmptyView() }
         case let .updateAvailable(installed, target):
             coreStatusRow(
                 symbol: "arrow.triangle.2.circlepath.circle.fill",
                 color: AppPalette.warning,
-                title: "可安装兼容内核 \(target.version)",
-                detail: "当前已安装 \(installed.coreVersion)，客户端不会自动运行未经绑定的版本。"
+                title: "已选择 Core \(target.version)",
+                detail: "当前另有 Core \(installed.coreVersion) 已安装；安装所选版本后才能启动。"
             ) {
-                Button("安装兼容版本") { Task { await model.installCore() } }
+                Button("安装所选版本") { Task { await model.installCore() } }
                     .buttonStyle(.borderedProminent)
             }
         case let .failed(message):
