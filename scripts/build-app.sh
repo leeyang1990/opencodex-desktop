@@ -24,8 +24,8 @@ if [[ "$ICON_WIDTH" != "1024" || "$ICON_HEIGHT" != "1024" ]]; then
   echo "App icon source must be exactly 1024 × 1024 pixels" >&2
   exit 1
 fi
-if [[ "$ICON_HAS_ALPHA" != "yes" ]]; then
-  echo "App icon source must use an alpha channel for transparent macOS icon corners" >&2
+if [[ "$ICON_HAS_ALPHA" != "no" ]]; then
+  echo "App icon source must be fully opaque; macOS applies the rounded-corner mask" >&2
   exit 1
 fi
 

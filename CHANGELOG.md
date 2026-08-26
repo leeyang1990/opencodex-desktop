@@ -4,6 +4,12 @@ All notable changes to OpenCodex Desktop are documented here. The project follow
 
 ## Unreleased
 
+## 0.7.1 - 2026-08-26
+
+### Fixed
+
+- Remove the pre-masked transparent icon corners so macOS can apply its native rounded mask without a white halo.
+
 ## 0.7.0 - 2026-08-25
 
 ### Added

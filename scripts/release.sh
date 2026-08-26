@@ -114,8 +114,8 @@ APP_BUILD="$(plutil -extract CFBundleVersion raw "$APP_PATH/Contents/Info.plist"
 BUILT_ICON_LAYER="$PROJECT_DIR/.build/AppIcon.iconset/icon_512x512@2x.png"
 [[ -f "$BUILT_ICON_LAYER" ]] || fail "build did not produce the 1024px app icon layer"
 BUILT_ICON_ALPHA="$(sips -g hasAlpha "$BUILT_ICON_LAYER" | awk '/hasAlpha/ {print $2}')"
-[[ "$BUILT_ICON_ALPHA" == "yes" ]] \
-  || fail "built app icon lost its alpha channel; release packaging stopped"
+[[ "$BUILT_ICON_ALPHA" == "no" ]] \
+  || fail "built app icon contains transparency; release packaging stopped"
 
 ARCHS="$(lipo -archs "$EXECUTABLE")"
 [[ "$ARCHS" == "arm64" ]] \

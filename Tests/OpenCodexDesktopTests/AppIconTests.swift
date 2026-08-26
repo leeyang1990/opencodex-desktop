@@ -2,7 +2,7 @@ import AppKit
 import XCTest
 
 final class AppIconTests: XCTestCase {
-    func testSourceIconHasTransparentMacOSCorners() throws {
+    func testSourceIconIsFullBleedOpaqueSquareForSystemMasking() throws {
         let iconURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             .appendingPathComponent("Assets/AppIcon-Source.png")
         let iconData = try Data(contentsOf: iconURL)
@@ -10,20 +10,21 @@ final class AppIconTests: XCTestCase {
 
         XCTAssertEqual(icon.pixelsWide, 1024)
         XCTAssertEqual(icon.pixelsHigh, 1024)
-        XCTAssertTrue(icon.hasAlpha)
+        XCTAssertFalse(icon.hasAlpha)
 
-        let transparentPoints = [
+        let edgePoints = [
             NSPoint(x: 0, y: 0),
             NSPoint(x: 1023, y: 0),
             NSPoint(x: 0, y: 1023),
             NSPoint(x: 1023, y: 1023),
+            NSPoint(x: 512, y: 0),
+            NSPoint(x: 512, y: 1023),
+            NSPoint(x: 0, y: 512),
+            NSPoint(x: 1023, y: 512),
         ]
-        for point in transparentPoints {
+        for point in edgePoints {
             let color = try XCTUnwrap(icon.colorAt(x: Int(point.x), y: Int(point.y)))
-            XCTAssertLessThanOrEqual(color.alphaComponent, 0.01, "Expected transparent pixel at \(point)")
+            XCTAssertGreaterThanOrEqual(color.alphaComponent, 0.99, "Expected opaque pixel at \(point)")
         }
-
-        let center = try XCTUnwrap(icon.colorAt(x: 512, y: 512))
-        XCTAssertGreaterThanOrEqual(center.alphaComponent, 0.99)
     }
 }
