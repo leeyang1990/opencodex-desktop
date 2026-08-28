@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject private var model: AppModel
+    @ObservedObject private var appUpdateManager = AppUpdateManager.shared
     @State private var selection: SidebarDestination? = .overview
 
     var body: some View {
@@ -67,6 +68,14 @@ struct RootView: View {
                             Text(destination.title)
                                 .font(.callout.weight(selection == destination ? .semibold : .regular))
                                 .fixedSize(horizontal: true, vertical: false)
+                            if destination == .settings, appUpdateManager.availableRelease != nil {
+                                Text("更新")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(AppPalette.accent, in: Capsule())
+                            }
                             Spacer(minLength: 0)
                         }
                         .foregroundStyle(selection == destination ? AppPalette.accent : Color.primary)

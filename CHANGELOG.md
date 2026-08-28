@@ -4,6 +4,13 @@ All notable changes to OpenCodex Desktop are documented here. The project follow
 
 ## Unreleased
 
+## 0.9.0 - 2026-08-28
+
+### Added
+
+- Add daily GitHub Release checks plus a manual update flow that downloads the exact Apple Silicon DMG, verifies its SHA-256 sidecar, and opens the validated installer image.
+- Keep the local Core process running when the Desktop client exits or crashes so existing Codex account routing remains available until the user explicitly stops the service.
+
 ## 0.8.0 - 2026-08-28
 
 ### Added

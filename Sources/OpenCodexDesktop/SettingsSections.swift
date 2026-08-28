@@ -25,8 +25,95 @@ extension SettingsView {
                 .labelsHidden()
                 .toggleStyle(.switch)
             }
+
+            Divider()
+
+            settingRow(
+                title: "自动检查客户端更新",
+                detail: "启动时最多每天检查一次本仓库的 GitHub Release；不会自动下载或安装"
+            ) {
+                Toggle(
+                    "",
+                    isOn: Binding(
+                        get: { appUpdateManager.automaticChecksEnabled },
+                        set: { appUpdateManager.setAutomaticChecksEnabled($0) }
+                    )
+                )
+                .labelsHidden()
+                .toggleStyle(.switch)
+            }
+
+            Divider()
+
+            clientUpdateStatus
         }
         .cardStyle()
+    }
+
+    var clientUpdateStatus: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("客户端版本")
+                        .font(.callout.weight(.medium))
+                    Text("当前版本 \(appUpdateManager.currentVersion) · Apple Silicon")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if appUpdateManager.isBusy {
+                    ProgressView()
+                        .controlSize(.small)
+                }
+            }
+
+            if let statusMessage = appUpdateManager.statusMessage {
+                Label(statusMessage, systemImage: updateStatusSymbol)
+                    .font(.caption)
+                    .foregroundStyle(updateStatusColor)
+                    .textSelection(.enabled)
+            }
+
+            HStack {
+                Button("检查更新") {
+                    Task { await appUpdateManager.checkForUpdates() }
+                }
+                .disabled(appUpdateManager.isBusy)
+
+                Button("Release 页面") { appUpdateManager.openReleasesPage() }
+
+                Spacer()
+
+                if appUpdateManager.downloadedUpdateURL != nil {
+                    Button("在 Finder 中显示") { appUpdateManager.revealDownloadedUpdate() }
+                    Button("打开安装镜像") { appUpdateManager.openDownloadedUpdate() }
+                        .buttonStyle(.borderedProminent)
+                } else if appUpdateManager.availableRelease != nil {
+                    Button("下载并校验") {
+                        Task { await appUpdateManager.downloadAvailableUpdate() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(appUpdateManager.isBusy)
+                }
+            }
+        }
+    }
+
+    var updateStatusSymbol: String {
+        if appUpdateManager.downloadedUpdateURL != nil { return "checkmark.shield.fill" }
+        if appUpdateManager.availableRelease != nil { return "arrow.down.circle.fill" }
+        if appUpdateManager.lastOperationFailed {
+            return "exclamationmark.triangle.fill"
+        }
+        return "checkmark.circle.fill"
+    }
+
+    var updateStatusColor: Color {
+        if appUpdateManager.lastOperationFailed {
+            return AppPalette.warning
+        }
+        if appUpdateManager.availableRelease != nil { return AppPalette.accent }
+        return .secondary
     }
 
     var environmentCheckSection: some View {
@@ -174,6 +261,13 @@ extension SettingsView {
 
             Divider()
             coreInstallationStatus
+
+            Label(
+                "退出或意外关闭 Desktop 不会停止本地 Core；Codex 账号链路会继续运行，只有点击“停止服务”或卸载内核才会主动停止。",
+                systemImage: "bolt.shield.fill"
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
 
             Divider()
             settingRow(

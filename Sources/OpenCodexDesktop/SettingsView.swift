@@ -6,6 +6,7 @@ struct SettingsView: View {
     @StateObject var loginItem = LoginItemManager()
     @ObservedObject var coreManager = CoreManager.shared
     @ObservedObject var applicationAppearance = ApplicationAppearance.shared
+    @ObservedObject var appUpdateManager = AppUpdateManager.shared
 
     @State var host = AppConstants.Connection.defaultHost
     @State var port = AppConstants.Connection.defaultPort

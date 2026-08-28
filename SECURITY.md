@@ -23,6 +23,7 @@ Please allow maintainers reasonable time to investigate and publish a coordinate
 - Management requests are restricted to loopback hosts.
 - The management token is read only for authenticated local requests.
 - Core, lockfile, and runtime downloads are pinned to HTTPS URLs and exact SHA-256 digests.
+- Client updates are restricted to this repository's stable GitHub Releases, exact arm64 DMG/checksum asset names, HTTPS hosts, size ceilings, and matching SHA-256 digests. The app does not install an update without user action.
 - Generated apps, downloaded runtimes, Provider configuration, credentials, and logs are excluded from version control and release bundles.
 - External login links are restricted to official OpenAI or ChatGPT HTTPS domains.
 

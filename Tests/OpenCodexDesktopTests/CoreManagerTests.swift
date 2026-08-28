@@ -4,6 +4,30 @@ import XCTest
 @testable import OpenCodexDesktop
 
 final class CoreReleaseTests: XCTestCase {
+    func testApplicationTerminationDetachesWithoutStoppingCore() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let appSource = try String(
+            contentsOf: repositoryRoot.appendingPathComponent("Sources/OpenCodexDesktop/OpenCodexDesktopApp.swift"),
+            encoding: .utf8
+        )
+        let managerSource = try String(
+            contentsOf: repositoryRoot.appendingPathComponent("Sources/OpenCodexDesktop/CoreManager.swift"),
+            encoding: .utf8
+        )
+        let start = try XCTUnwrap(managerSource.range(of: "func detachOwnedProcess()"))
+        let remainingSource = managerSource[start.lowerBound...]
+        let end = try XCTUnwrap(remainingSource.range(of: "\n    private func"))
+        let detachImplementation = remainingSource[..<end.lowerBound]
+
+        XCTAssertTrue(appSource.contains("CoreManager.shared.detachOwnedProcess()"))
+        XCTAssertFalse(appSource.contains("CoreManager.shared.terminateOwnedProcess()"))
+        XCTAssertFalse(detachImplementation.contains(".terminate()"))
+        XCTAssertFalse(detachImplementation.contains("Darwin.kill"))
+    }
+
     func testBuildReleaseIsPinnedToImmutableArtifacts() {
         let release = CoreReleaseCatalog.build
 

@@ -39,6 +39,8 @@ OpenCodex Desktop 是独立、轻量的 macOS 启动器，不是 OpenCodex 的�
 - **账号池管理** — 查看账号状态与轮换策略。
 - **本地优先** — 管理接口仅允许连接回环地址，敏感配置不进入仓库或 App Bundle。
 - **可验证安装** — 下载地址固定为 HTTPS，内核、锁文件和运行时均校验 SHA-256。
+- **客户端更新** — 自动检查本仓库的 GitHub Release，只下载精确匹配的 Apple Silicon DMG，并在打开安装镜像前验证 SHA-256。
+- **后台连续性** — 退出或意外关闭 Desktop 不会停止已运行的 Core，现有 Codex 账号与路由链路继续可用。
 
 ## 界面预览
 
@@ -82,7 +84,7 @@ OpenCodex Desktop 是独立、轻量的 macOS 启动器，不是 OpenCodex 的�
 
 | 组件 | 当前版本 |
 | :--- | :--- |
-| OpenCodex Desktop | `0.6.1` (`6`) |
+| OpenCodex Desktop | `0.9.0` (`10`) |
 | OpenCodex Core | `2.12.0` (`6d881db`) |
 | Bun | `1.3.14` |
 | macOS | `14.0` 或更高版本 |
@@ -103,6 +105,8 @@ OpenCodex Desktop/Core/                                          OpenCodex/Data/
 ```
 
 桌面端负责安装和运行兼容内核；Provider、账号、令牌等用户数据继续保存在独立数据目录中。升级或卸载内核运行文件不会删除这些配置。
+
+Core 启动后与桌面窗口生命周期解耦。退出或意外关闭 OpenCodex Desktop 不会终止 Core；重新打开客户端会连接现有服务，而不会重复启动。需要停用代理时，应在客户端中明确点击“停止服务”。
 
 ## 开发
 
@@ -140,7 +144,7 @@ dist/OpenCodex Desktop.app
 发布前先更新 `Info.plist` 中的版本号和构建号，然后在干净的 Git 工作区执行：
 
 ```bash
-./scripts/release.sh 0.6.1
+./scripts/release.sh 0.9.0
 ```
 
 脚本会依次运行测试、构建 Apple Silicon App、验证纯 `arm64` 架构及 ad-hoc 签名，并在 `dist/release/` 生成带“应用程序”快捷方式的 DMG、便携 ZIP 以及两者的 SHA-256 文件。它不会打包 Core、运行时、Provider 配置、凭据或日志。
@@ -156,8 +160,8 @@ xattr -dr com.apple.quarantine "/Applications/OpenCodex Desktop.app"
 仓库包含自动发布 Workflow。合并版本修改后创建并推送与 `Info.plist` 一致的 tag：
 
 ```bash
-git tag v0.6.1
-git push origin v0.6.1
+git tag v0.9.0
+git push origin v0.9.0
 ```
 
 GitHub Actions 会在 macOS ARM runner 上执行同一套测试、构建和校验流程，然后自动创建 GitHub Release、生成更新说明并上传 arm64 DMG、ZIP 与对应的 SHA-256 文件。Workflow 不需要签名证书或自定义 Secret，仅使用 GitHub 自动提供且被限制为当前仓库的 token。
@@ -206,6 +210,7 @@ git clone --branch v2.12.0 --single-branch \
 - API Key、账号标识和请求正文不会被持久化到日志。
 - 下载产物必须使用固定 HTTPS 地址和精确摘要。
 - 桌面端更新内核前必须明确验证兼容版本。
+- 客户端更新只接受本仓库正式 GitHub Release 中精确命名的 arm64 DMG，并验证配套 SHA-256 文件后才允许打开。
 - 外部登录链接仅允许 OpenAI 与 ChatGPT 官方域名的 HTTPS 地址。
 - Core 数据、状态与日志使用仅当前用户可读写的文件权限。
 - 生成的 App、运行时、配置、凭据和日志不会纳入版本控制。

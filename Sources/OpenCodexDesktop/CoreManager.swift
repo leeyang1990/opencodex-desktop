@@ -848,10 +848,13 @@ final class CoreManager: ObservableObject {
         NSWorkspace.shared.open(CoreInstallationPaths.coreDirectory)
     }
 
-    func terminateOwnedProcess() {
-        guard let process, process.isRunning else { return }
-        stopRequested = true
-        process.terminate()
+    func detachOwnedProcess() {
+        process?.terminationHandler = nil
+        process = nil
+        try? logHandle?.close()
+        logHandle = nil
+        ownsRunningProcess = false
+        stopRequested = false
     }
 
     private func reportInstallationPhase(_ phase: String) {

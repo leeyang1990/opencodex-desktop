@@ -151,13 +151,25 @@ rm -rf "$DMG_STAGING"
 mkdir -p "$DMG_STAGING"
 ditto "$APP_PATH" "$DMG_STAGING/OpenCodex Desktop.app"
 ln -s /Applications "$DMG_STAGING/Applications"
-hdiutil create \
-  -quiet \
-  -volname "OpenCodex Desktop" \
-  -srcfolder "$DMG_STAGING" \
-  -ov \
-  -format UDZO \
-  "$RELEASE_DIR/$DMG_NAME"
+create_dmg() {
+  hdiutil create \
+    -quiet \
+    -volname "OpenCodex Desktop" \
+    -srcfolder "$DMG_STAGING" \
+    -ov \
+    -format UDZO \
+    "$RELEASE_DIR/$DMG_NAME"
+}
+
+if ! create_dmg; then
+  echo "DMG creation failed; retrying once with verbose output" >&2
+  hdiutil create \
+    -volname "OpenCodex Desktop" \
+    -srcfolder "$DMG_STAGING" \
+    -ov \
+    -format UDZO \
+    "$RELEASE_DIR/$DMG_NAME"
+fi
 hdiutil verify "$RELEASE_DIR/$DMG_NAME" >/dev/null
 rm -rf "$DMG_STAGING"
 

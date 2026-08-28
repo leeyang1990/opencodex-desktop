@@ -39,6 +39,8 @@ OpenCodex Desktop is a standalone, lightweight macOS launcher. It is not a fork 
 - **Account pool management** — Inspect account health and configure rotation strategies.
 - **Local-first design** — The management interface only connects to loopback addresses, and sensitive configuration is never bundled with the app or committed to the repository.
 - **Verifiable installation** — Downloads use pinned HTTPS URLs, with SHA-256 verification for the core, lockfile, and runtime.
+- **Client updates** — Automatically check this repository's GitHub Releases, select the exact Apple Silicon DMG, and verify its SHA-256 before opening the installer image.
+- **Background continuity** — Closing or crashing the Desktop client does not stop a running Core, so existing Codex account and routing access remains available.
 
 ## Interface Preview
 
@@ -82,7 +84,7 @@ Each desktop release is bound to a verified set of core and runtime versions. Th
 
 | Component | Current version |
 | :--- | :--- |
-| OpenCodex Desktop | `0.6.1` (`6`) |
+| OpenCodex Desktop | `0.9.0` (`10`) |
 | OpenCodex Core | `2.12.0` (`6d881db`) |
 | Bun | `1.3.14` |
 | macOS | `14.0` or later |
@@ -103,6 +105,8 @@ OpenCodex Desktop/Core/                                          OpenCodex/Data/
 ```
 
 The desktop app installs and runs a compatible core. User data—including Providers, accounts, and tokens—remains in a separate data directory. Updating or removing the core runtime does not delete this configuration.
+
+After launch, Core is decoupled from the desktop window lifecycle. Quitting or crashing OpenCodex Desktop leaves Core running; reopening the client reconnects to the existing service instead of starting a duplicate. Use the explicit **Stop Service** action when the proxy should stop.
 
 ## Development
 
@@ -140,7 +144,7 @@ The build script packages only the Swift client, app icon, and license files. It
 Update the version and build number in `Info.plist`, then run the release script from a clean Git worktree:
 
 ```bash
-./scripts/release.sh 0.6.1
+./scripts/release.sh 0.9.0
 ```
 
 The script runs the test suite, builds the Apple Silicon app, verifies the pure `arm64` architecture and ad-hoc signature, and produces an installer-style DMG with an Applications shortcut, a portable ZIP, and SHA-256 checksums for both under `dist/release/`. Core files, runtimes, Provider configuration, credentials, and logs are excluded.
@@ -156,8 +160,8 @@ Use `--allow-dirty` only to validate local, uncommitted changes. Production rele
 The repository includes an automated release workflow. After merging the version change, create and push a tag that matches `Info.plist`:
 
 ```bash
-git tag v0.6.1
-git push origin v0.6.1
+git tag v0.9.0
+git push origin v0.9.0
 ```
 
 GitHub Actions runs the same tests, build, and verification steps on a macOS ARM runner, then creates a GitHub Release with generated release notes, the arm64 DMG and ZIP, and their SHA-256 checksums. The workflow requires no signing certificate or custom secret; it uses only the repository-scoped token provided by GitHub.
@@ -206,6 +210,7 @@ git clone --branch v2.12.0 --single-branch \
 - API keys, account identifiers, and request bodies are never persisted in logs.
 - Downloaded artifacts must use pinned HTTPS URLs and exact digests.
 - Core compatibility must be explicitly verified before the desktop client updates it.
+- Client updates accept only the exactly named arm64 DMG from a stable GitHub Release in this repository and verify its SHA-256 sidecar before opening it.
 - External login links are restricted to official OpenAI and ChatGPT HTTPS domains.
 - Core data, state, and logs use permissions limited to the current user.
 - Generated apps, runtimes, configuration, credentials, and logs are excluded from version control.
