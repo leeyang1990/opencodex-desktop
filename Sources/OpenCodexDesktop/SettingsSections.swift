@@ -2,6 +2,33 @@ import AppKit
 import SwiftUI
 
 extension SettingsView {
+    var applicationSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader("客户端", symbol: "macwindow")
+            settingRow(
+                title: "在 Dock 中显示",
+                detail: "关闭后同时从 Dock 和 ⌘-Tab 隐藏；仍可通过菜单栏图标打开窗口"
+            ) {
+                Toggle(
+                    "",
+                    isOn: Binding(
+                        get: { applicationAppearance.showsDockIcon },
+                        set: { isVisible in
+                            do {
+                                try applicationAppearance.setDockIconVisible(isVisible)
+                            } catch {
+                                model.errorMessage = error.localizedDescription
+                            }
+                        }
+                    )
+                )
+                .labelsHidden()
+                .toggleStyle(.switch)
+            }
+        }
+        .cardStyle()
+    }
+
     var environmentCheckSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {

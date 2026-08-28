@@ -2,6 +2,10 @@ import SwiftUI
 
 @MainActor
 final class ApplicationDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        ApplicationAppearance.shared.applyStoredPreference()
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         CoreManager.shared.terminateOwnedProcess()
     }

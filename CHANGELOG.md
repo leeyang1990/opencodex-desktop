@@ -4,6 +4,12 @@ All notable changes to OpenCodex Desktop are documented here. The project follow
 
 ## Unreleased
 
+## 0.8.0 - 2026-08-28
+
+### Added
+
+- Add a persistent setting that hides the client from the Dock and app switcher while keeping its menu bar controls available.
+
 ## 0.7.1 - 2026-08-26
 
 ### Fixed

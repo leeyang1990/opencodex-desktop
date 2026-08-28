@@ -5,6 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject var model: AppModel
     @StateObject var loginItem = LoginItemManager()
     @ObservedObject var coreManager = CoreManager.shared
+    @ObservedObject var applicationAppearance = ApplicationAppearance.shared
 
     @State var host = AppConstants.Connection.defaultHost
     @State var port = AppConstants.Connection.defaultPort
@@ -29,6 +30,7 @@ struct SettingsView: View {
                 )
 
                 connectionSection
+                applicationSection
                 coreSection
                 environmentCheckSection
 
