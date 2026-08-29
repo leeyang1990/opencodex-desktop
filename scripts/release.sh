@@ -96,7 +96,7 @@ echo "==> Checking source quality"
 "$SCRIPT_DIR/check-source-quality.sh"
 if [[ "$SKIP_TESTS" != true ]]; then
   echo "==> Running tests"
-  swift test
+  swift test -Xswiftc -strict-concurrency=complete
 fi
 
 echo "==> Building Apple Silicon app"

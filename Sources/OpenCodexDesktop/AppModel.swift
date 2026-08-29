@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 
 @MainActor
-final class AppModel: ObservableObject {
+final class AppModel: NSObject, ObservableObject {
     @Published var connectionState: ConnectionState = .checking
     @Published var health: HealthResponse?
     @Published var settings: RuntimeSettings?
@@ -26,7 +26,7 @@ final class AppModel: ObservableObject {
     let eventStore = DesktopEventStore.shared
     var notificationManager: NativeNotificationManager { .shared }
 
-    private var workspaceObservers: [NSObjectProtocol] = []
+    private var systemMonitoringStarted = false
     private var serviceMonitorTask: Task<Void, Never>?
 
     init(
@@ -40,6 +40,7 @@ final class AppModel: ObservableObject {
         connectionHost = initialHost
         connectionPort = initialPort
         self.client = client ?? OpenCodexAPIClient(host: initialHost, port: initialPort)
+        super.init()
     }
 
     var isOnline: Bool { connectionState == .online }
@@ -104,19 +105,20 @@ final class AppModel: ObservableObject {
     }
 
     private func startSystemMonitoring() {
-        guard workspaceObservers.isEmpty else { return }
+        guard !systemMonitoringStarted else { return }
+        systemMonitoringStarted = true
         let center = NSWorkspace.shared.notificationCenter
-        workspaceObservers.append(
-            center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) {
-                [weak self] _ in
-                Task { @MainActor in self?.eventStore.append(.systemSleep) }
-            }
+        center.addObserver(
+            self,
+            selector: #selector(handleSystemSleepNotification(_:)),
+            name: NSWorkspace.willSleepNotification,
+            object: nil
         )
-        workspaceObservers.append(
-            center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) {
-                [weak self] _ in
-                Task { @MainActor in await self?.handleSystemWake() }
-            }
+        center.addObserver(
+            self,
+            selector: #selector(handleSystemWakeNotification(_:)),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
         )
         serviceMonitorTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -135,6 +137,14 @@ final class AppModel: ObservableObject {
                 }
             }
         }
+    }
+
+    @objc private func handleSystemSleepNotification(_ notification: Notification) {
+        eventStore.append(.systemSleep)
+    }
+
+    @objc private func handleSystemWakeNotification(_ notification: Notification) {
+        Task { await handleSystemWake() }
     }
 
     private func handleSystemWake() async {

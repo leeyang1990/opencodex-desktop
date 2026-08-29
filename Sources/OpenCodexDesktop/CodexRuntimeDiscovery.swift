@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 
-enum CodexRuntimeSource: String, Codable, CaseIterable {
+enum CodexRuntimeSource: String, Codable, CaseIterable, Sendable {
     case desktopPreference
     case coreConfigured
     case environment
@@ -25,7 +25,7 @@ enum CodexRuntimeSource: String, Codable, CaseIterable {
     }
 }
 
-struct CodexRuntimeCandidate: Identifiable, Equatable {
+struct CodexRuntimeCandidate: Identifiable, Equatable, Sendable {
     let path: String
     let source: CodexRuntimeSource
     let version: String?
@@ -50,10 +50,10 @@ enum CodexRuntimeDiscovery {
         environment: [String: String],
         dataDirectory: URL,
         preferredPath: String?,
-        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
-        fileManager: FileManager = .default
+        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
     ) async -> [CodexRuntimeCandidate] {
         await Task.detached(priority: .utility) {
+            let fileManager = FileManager()
             let candidates = candidatePaths(
                 environment: environment,
                 dataDirectory: dataDirectory,

@@ -102,6 +102,7 @@ private struct LocalDashboardWebView: NSViewRepresentable {
         }
     }
 
+    @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate {
         var dashboardURL: URL
         var reloadID: UUID
@@ -114,7 +115,7 @@ private struct LocalDashboardWebView: NSViewRepresentable {
         func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
-            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+            decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
         ) {
             guard let targetURL = navigationAction.request.url else {
                 decisionHandler(.cancel)
