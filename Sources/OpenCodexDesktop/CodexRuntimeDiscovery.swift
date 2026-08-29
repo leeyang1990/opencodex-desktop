@@ -14,7 +14,7 @@ enum CodexRuntimeSource: String, Codable, CaseIterable, Sendable {
     var title: String {
         switch self {
         case .desktopPreference: "Desktop 偏好"
-        case .coreConfigured: "已保存路径"
+        case .coreConfigured: "Core 历史选择"
         case .environment: "环境变量"
         case .nvm: "NVM"
         case .homebrew: "Homebrew"

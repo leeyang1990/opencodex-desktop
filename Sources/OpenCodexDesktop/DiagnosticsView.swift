@@ -170,6 +170,14 @@ struct DiagnosticsView: View {
                 }
             }
 
+            Label {
+                Text("这里选择的是 Core 调用的 Codex CLI，用于 Codex 登录、模型目录与功能兼容性识别；不是 OpenCodex Core 版本，也不会切换账号。")
+            } icon: {
+                Image(systemName: "info.circle")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
             DisclosureGroup(isExpanded: $showsAdvancedRuntimeOptions) {
                 VStack(alignment: .leading, spacing: 12) {
                     Divider()
@@ -201,7 +209,7 @@ struct DiagnosticsView: View {
                 .padding(.top, 8)
             } label: {
                 HStack {
-                    Label("高级：更换 Codex CLI", systemImage: "slider.horizontal.3")
+                    Label("高级：选择其他 Codex CLI", systemImage: "slider.horizontal.3")
                     Spacer()
                     Text("\(model.codexRuntimeCandidates.filter(\.isValid).count) 个可用版本")
                         .font(.caption)
@@ -321,8 +329,10 @@ struct DiagnosticsView: View {
                     if recommendedRuntime?.path == candidate.path {
                         Pill(text: "推荐", color: AppPalette.success)
                     }
-                    if coreManager.preferredCodexRuntimePath == candidate.path {
-                        Pill(text: "已选择", color: AppPalette.accent)
+                    if coreUsesCandidate(candidate) {
+                        Pill(text: "Core 当前使用", color: AppPalette.accent)
+                    } else if coreManager.preferredCodexRuntimePath == candidate.path {
+                        Pill(text: "重启后使用", color: AppPalette.accent)
                     }
                 }
                 Text(candidate.displayPath)
@@ -338,8 +348,11 @@ struct DiagnosticsView: View {
                 }
             }
             Spacer()
-            if candidate.isValid, coreManager.preferredCodexRuntimePath != candidate.path {
-                Button("切换并重启") { Task { await model.useCodexRuntime(candidate) } }
+            if candidate.isValid,
+                !coreUsesCandidate(candidate),
+                coreManager.preferredCodexRuntimePath != candidate.path
+            {
+                Button(candidateActionTitle) { Task { await model.useCodexRuntime(candidate) } }
                     .disabled(model.isRefreshing || model.isScanningCodexRuntimes)
             }
         }
@@ -355,6 +368,16 @@ struct DiagnosticsView: View {
 
     private var coreRuntimeIsBound: Bool { model.settings?.codexRuntime?.version != nil }
 
+    private func coreUsesCandidate(_ candidate: CodexRuntimeCandidate) -> Bool {
+        guard coreRuntimeIsBound, let runtimePath = model.settings?.codexRuntime?.path else { return false }
+        return expandedRuntimePath(runtimePath) == candidate.path
+    }
+
+    private func expandedRuntimePath(_ path: String) -> String {
+        guard path == "~" || path.hasPrefix("~/") else { return path }
+        return FileManager.default.homeDirectoryForCurrentUser.path + path.dropFirst()
+    }
+
     private var runtimeStatusSymbol: String {
         if coreRuntimeIsBound { return "checkmark.circle.fill" }
         if recommendedRuntime != nil { return model.isOnline ? "link.badge.plus" : "checkmark.circle.fill" }
@@ -367,23 +390,26 @@ struct DiagnosticsView: View {
     }
 
     private var runtimeStatusTitle: String {
-        if coreRuntimeIsBound { return "Codex CLI 已就绪" }
+        if let version = model.settings?.codexRuntime?.version {
+            return "Core 当前使用 Codex \(version)"
+        }
         if let recommendedRuntime {
             return model.isOnline
-                ? "需要绑定 Codex \(recommendedRuntime.version ?? "")"
-                : "已安装 Codex \(recommendedRuntime.version ?? "")"
+                ? "Core 当前未绑定 Codex CLI"
+                : "已找到 Codex \(recommendedRuntime.version ?? "")"
         }
         return model.isScanningCodexRuntimes ? "正在查找 Codex CLI" : "未找到 Codex CLI"
     }
 
     private var runtimeStatusDetail: String {
-        if let runtime = model.settings?.codexRuntime, let version = runtime.version {
-            return "Core 正在使用 Codex \(version) · \(runtime.source ?? "自动发现")"
+        if let runtime = model.settings?.codexRuntime, runtime.version != nil {
+            let path = runtime.path.map(expandedRuntimePath) ?? "路径未知"
+            return "已验证版本 · \(path) · \(runtimeSourceTitle(runtime.source))"
         }
         if recommendedRuntime != nil {
             return model.isOnline
-                ? "Desktop 已完成验证；绑定推荐版本后会重启 Core。"
-                : "Desktop 已完成验证；Core 启动时会使用所选版本。"
+                ? "当前仅回退尝试系统命令 codex，版本无法确认；Codex 登录与能力识别可能不稳定。"
+                : "Core 尚未运行；选择推荐版本后，下次启动将使用该版本。"
         }
         return model.isScanningCodexRuntimes
             ? "正在检查 NVM、Homebrew、Codex.app、ChatGPT.app 与系统 PATH。"
@@ -391,7 +417,21 @@ struct DiagnosticsView: View {
     }
 
     private var runtimePrimaryActionTitle: String {
-        model.isOnline || coreManager.ownsRunningProcess ? "绑定并重启" : "使用推荐版本"
+        model.isOnline || coreManager.ownsRunningProcess ? "使用推荐版本并重启" : "设为推荐版本"
+    }
+
+    private var candidateActionTitle: String {
+        model.isOnline || coreManager.ownsRunningProcess ? "设为当前并重启" : "选择"
+    }
+
+    private func runtimeSourceTitle(_ source: String?) -> String {
+        switch source {
+        case "environment": "Desktop 指定"
+        case "configured": "Core 已保存"
+        case "shim": "应用运行环境"
+        case "path": "系统 PATH"
+        default: source ?? "自动发现"
+        }
     }
 
     private var privacyCard: some View {
