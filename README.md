@@ -7,7 +7,7 @@
   <h1>OpenCodex Desktop</h1>
   <p><strong>OpenCodex 的原生 macOS 运行与诊断层</strong></p>
   <p>
-    管理本机 Core、Codex Runtime、安全检查与系统集成；业务配置交给 OpenCodex 控制台。
+    管理本机 Core、Codex CLI、安全检查与系统集成；业务配置交给 OpenCodex 控制台。
   </p>
   <p>
     <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111827?style=flat-square&logo=apple&logoColor=white">
@@ -29,17 +29,17 @@
 
 ## 项目简介
 
-OpenCodex Desktop 是独立、轻量的 macOS 客户端，不是 OpenCodex 的源码分支，也不会修改或内置上游项目。它专注 Web 页面无法独立完成的本机工作：安装和管理 Core、发现 Codex Runtime、执行安全与环境检查、记录脱敏故障事件，并接入菜单栏、通知、登录项与快捷指令。Provider、账号、模型和路由继续由 OpenCodex 控制台统一管理。
+OpenCodex Desktop 是独立、轻量的 macOS 客户端，不是 OpenCodex 的源码分支，也不会修改或内置上游项目。它专注 Web 页面无法独立完成的本机工作：安装和管理 Core、发现 Codex CLI、执行安全与环境检查、记录脱敏故障事件，并接入菜单栏、通知、登录项与快捷指令。Provider、账号、模型和路由继续由 OpenCodex 控制台统一管理。
 
 ### 核心能力
 
-- **本机运行中心** — 集中显示 Core、Codex Runtime、运行时长、安全状态和最近事件，并提供明确的启停与重启操作。
-- **Codex Runtime 管理** — 自动发现 NVM、Homebrew、Codex.app、ChatGPT.app 与 PATH 中的 CLI，验证版本后允许显式选择；不接触 Codex 登录账号。
+- **本机运行中心** — 集中显示 Core、Codex CLI、运行时长、安全状态和最近事件，并提供明确的启停与重启操作。
+- **Codex CLI 管理** — 自动发现 NVM、Homebrew、Codex.app、ChatGPT.app 与 PATH 中的 CLI，默认推荐稳定版本，高级选项中可显式切换；不接触 Codex 登录账号。
 - **可信 Core 生命周期** — 安装、启动和检查兼容 Core，保留最近成功版本，并在更新失败时安全回滚。
-- **诊断与安全修复** — 即使 Core 离线，也能检查安装完整性、端口、磁盘、令牌权限、监听范围、代码签名、Runtime 与登录项。
+- **诊断与安全修复** — 即使 Core 离线，也能检查安装完整性、端口、磁盘、令牌权限、监听范围、代码签名、Codex CLI 与登录项。
 - **本机故障时间线** — 记录最近 7 天的启动、停止、崩溃、睡眠与唤醒检查事件，不记录账号、Prompt、请求或响应。
 - **macOS 原生集成** — 菜单栏、Dock 显示策略、登录项、可选系统通知、App Shortcuts 与 `opencodex://` 安全导航入口。
-- **脱敏诊断包** — 导出环境、安全、Runtime 和事件结论；不包含凭据、账号标识、请求正文、路径清单或 Core 原始日志。
+- **脱敏诊断包** — 导出环境、安全、Codex CLI 和事件结论；不包含凭据、账号标识、请求正文、路径清单或 Core 原始日志。
 - **OpenCodex 控制台入口** — 从独立 Tab 打开由 Core 提供的 Provider、账号、模型、日志、用量与集成管理。
 - **本地优先** — 管理接口仅允许连接回环地址，敏感配置不进入仓库或 App Bundle。
 - **可验证安装** — 下载地址固定为 HTTPS，内核、锁文件和运行时均校验 SHA-256。

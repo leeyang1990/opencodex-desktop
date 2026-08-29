@@ -50,7 +50,7 @@ struct OverviewView: View {
                     tint: AppPalette.success
                 )
                 MetricCard(
-                    title: "Codex Runtime",
+                    title: "Codex CLI",
                     value: codexRuntimeValue,
                     detail: codexRuntimeDetail,
                     symbol: "terminal.fill",
@@ -192,7 +192,7 @@ struct OverviewView: View {
         if model.codexRuntimeCandidates.contains(where: \.isValid) {
             return "Desktop 已验证 · Core 未绑定"
         }
-        return model.hasScannedCodexRuntimes ? "请安装或重新扫描" : "正在扫描本机 Runtime"
+        return model.hasScannedCodexRuntimes ? "请安装或重新扫描" : "正在扫描本机 CLI"
     }
 
     private var uptimeValue: String {

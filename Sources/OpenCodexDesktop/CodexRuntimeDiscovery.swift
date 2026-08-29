@@ -126,6 +126,47 @@ enum CodexRuntimeDiscovery {
         }
     }
 
+    static func recommendedCandidate(
+        from candidates: [CodexRuntimeCandidate],
+        preferredPath: String?
+    ) -> CodexRuntimeCandidate? {
+        let valid = candidates.filter(\.isValid)
+        if let preferredPath, let preferred = valid.first(where: { $0.path == preferredPath }) {
+            return preferred
+        }
+        if let environment = valid.first(where: { $0.source == .environment }) {
+            return environment
+        }
+        if let saved = valid.first(where: { $0.source == .coreConfigured }) {
+            return saved
+        }
+        let stable = valid.filter { !($0.version?.contains("-") ?? true) }
+        return highestVersion(in: stable.isEmpty ? valid : stable)
+    }
+
+    private static func highestVersion(in candidates: [CodexRuntimeCandidate]) -> CodexRuntimeCandidate? {
+        guard var best = candidates.first else { return nil }
+        for candidate in candidates.dropFirst() where isVersion(candidate.version, newerThan: best.version) {
+            best = candidate
+        }
+        return best
+    }
+
+    private static func isVersion(_ lhs: String?, newerThan rhs: String?) -> Bool {
+        guard let lhs, let rhs else { return lhs != nil }
+        let left = versionComponents(lhs)
+        let right = versionComponents(rhs)
+        if left != right {
+            return right.lexicographicallyPrecedes(left)
+        }
+        return lhs.localizedStandardCompare(rhs) == .orderedDescending
+    }
+
+    private static func versionComponents(_ version: String) -> [Int] {
+        let core = version.split(whereSeparator: { $0 == "-" || $0 == "+" }).first ?? ""
+        return core.split(separator: ".").prefix(3).map { Int($0) ?? 0 }
+    }
+
     private static func persistedSelection(in dataDirectory: URL) -> PersistedCodexRuntimeSelection? {
         let file = dataDirectory.appendingPathComponent("codex-runtime.json", isDirectory: false)
         guard

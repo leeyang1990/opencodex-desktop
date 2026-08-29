@@ -5,6 +5,7 @@ struct DiagnosticsView: View {
     @ObservedObject private var coreManager = CoreManager.shared
     @ObservedObject private var eventStore = DesktopEventStore.shared
     @StateObject private var loginItem = LoginItemManager()
+    @State private var showsAdvancedRuntimeOptions = false
 
     var body: some View {
         ScrollView {
@@ -132,53 +133,82 @@ struct DiagnosticsView: View {
     private var runtimeCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Label("Codex Runtime", systemImage: "terminal")
+                Label("Codex CLI", systemImage: "terminal")
                     .font(.title3.weight(.semibold))
                 Spacer()
                 if model.isScanningCodexRuntimes {
                     ProgressView().controlSize(.small)
                 }
-                Button("重新扫描") { Task { await model.scanCodexRuntimes() } }
-                    .disabled(model.isScanningCodexRuntimes)
+                Button {
+                    Task { await model.scanCodexRuntimes() }
+                } label: {
+                    Label("重新扫描", systemImage: "arrow.clockwise")
+                }
+                .disabled(model.isScanningCodexRuntimes)
             }
 
-            HStack(alignment: .top, spacing: 12) {
-                Image(
-                    systemName: model.settings?.codexRuntime?.version == nil
-                        ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
-                )
-                .foregroundStyle(model.settings?.codexRuntime?.version == nil ? AppPalette.warning : AppPalette.success)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Core Runtime 绑定")
-                        .font(.callout.weight(.medium))
-                    Text(coreRuntimeDetail)
+            HStack(alignment: .center, spacing: 14) {
+                Image(systemName: runtimeStatusSymbol)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(runtimeStatusColor)
+                    .frame(width: 38, height: 38)
+                    .background(runtimeStatusColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 11))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(runtimeStatusTitle)
+                        .font(.callout.weight(.semibold))
+                    Text(runtimeStatusDetail)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                if coreManager.preferredCodexRuntimePath != nil {
-                    Button("恢复自动选择") { Task { await model.clearCodexRuntimePreference() } }
+                if !coreRuntimeIsBound, let recommendedRuntime {
+                    Button(runtimePrimaryActionTitle) {
+                        Task { await model.useCodexRuntime(recommendedRuntime) }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(model.isRefreshing || model.isScanningCodexRuntimes)
                 }
             }
 
-            Divider()
+            DisclosureGroup(isExpanded: $showsAdvancedRuntimeOptions) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Divider()
+                    if model.codexRuntimeCandidates.isEmpty, !model.isScanningCodexRuntimes {
+                        Text("没有可供切换的 Codex CLI。")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        VStack(spacing: 0) {
+                            ForEach(Array(model.codexRuntimeCandidates.enumerated()), id: \.element.id) {
+                                index, candidate in
+                                runtimeRow(candidate)
+                                if index < model.codexRuntimeCandidates.count - 1 { Divider() }
+                            }
+                        }
+                    }
 
-            if model.codexRuntimeCandidates.isEmpty, !model.isScanningCodexRuntimes {
-                Text("未发现可验证的 Codex CLI。")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(model.codexRuntimeCandidates.enumerated()), id: \.element.id) { index, candidate in
-                        runtimeRow(candidate)
-                        if index < model.codexRuntimeCandidates.count - 1 { Divider() }
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("切换版本会重启 Core，但不会修改账号、Provider、模型或路由配置。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if coreManager.preferredCodexRuntimePath != nil {
+                            Button("恢复自动选择") { Task { await model.clearCodexRuntimePreference() } }
+                                .disabled(model.isRefreshing)
+                        }
                     }
                 }
+                .padding(.top, 8)
+            } label: {
+                HStack {
+                    Label("高级：更换 Codex CLI", systemImage: "slider.horizontal.3")
+                    Spacer()
+                    Text("\(model.codexRuntimeCandidates.filter(\.isValid).count) 个可用版本")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .font(.callout.weight(.medium))
             }
-
-            Text("Desktop 只选择本机 Codex 可执行文件；账号登录与路由仍由 Codex 和 OpenCodex 管理。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .cardStyle()
     }
@@ -288,8 +318,11 @@ struct DiagnosticsView: View {
                     Text(candidate.version.map { "Codex \($0)" } ?? "无法验证")
                         .font(.callout.weight(.medium))
                     Pill(text: candidate.source.title, color: .secondary)
+                    if recommendedRuntime?.path == candidate.path {
+                        Pill(text: "推荐", color: AppPalette.success)
+                    }
                     if coreManager.preferredCodexRuntimePath == candidate.path {
-                        Pill(text: "当前偏好", color: AppPalette.accent)
+                        Pill(text: "已选择", color: AppPalette.accent)
                     }
                 }
                 Text(candidate.displayPath)
@@ -306,22 +339,59 @@ struct DiagnosticsView: View {
             }
             Spacer()
             if candidate.isValid, coreManager.preferredCodexRuntimePath != candidate.path {
-                Button("使用并重启") { Task { await model.useCodexRuntime(candidate) } }
-                    .disabled(model.isRefreshing)
+                Button("切换并重启") { Task { await model.useCodexRuntime(candidate) } }
+                    .disabled(model.isRefreshing || model.isScanningCodexRuntimes)
             }
         }
         .padding(.vertical, 9)
     }
 
-    private var coreRuntimeDetail: String {
-        guard let runtime = model.settings?.codexRuntime else { return "Core 未运行或管理接口不可用。" }
-        if let version = runtime.version {
-            return "已绑定 Codex \(version) · \(runtime.source ?? "自动发现")"
+    private var recommendedRuntime: CodexRuntimeCandidate? {
+        CodexRuntimeDiscovery.recommendedCandidate(
+            from: model.codexRuntimeCandidates,
+            preferredPath: coreManager.preferredCodexRuntimePath
+        )
+    }
+
+    private var coreRuntimeIsBound: Bool { model.settings?.codexRuntime?.version != nil }
+
+    private var runtimeStatusSymbol: String {
+        if coreRuntimeIsBound { return "checkmark.circle.fill" }
+        if recommendedRuntime != nil { return model.isOnline ? "link.badge.plus" : "checkmark.circle.fill" }
+        return model.isScanningCodexRuntimes ? "magnifyingglass" : "exclamationmark.triangle.fill"
+    }
+
+    private var runtimeStatusColor: Color {
+        if coreRuntimeIsBound || (!model.isOnline && recommendedRuntime != nil) { return AppPalette.success }
+        return model.isScanningCodexRuntimes ? .secondary : AppPalette.warning
+    }
+
+    private var runtimeStatusTitle: String {
+        if coreRuntimeIsBound { return "Codex CLI 已就绪" }
+        if let recommendedRuntime {
+            return model.isOnline
+                ? "需要绑定 Codex \(recommendedRuntime.version ?? "")"
+                : "已安装 Codex \(recommendedRuntime.version ?? "")"
         }
-        if let local = model.codexRuntimeCandidates.first(where: \.isValid) {
-            return "尚未绑定；Desktop 已找到 Codex \(local.version ?? "")。请选择下方版本并重启 Core。"
+        return model.isScanningCodexRuntimes ? "正在查找 Codex CLI" : "未找到 Codex CLI"
+    }
+
+    private var runtimeStatusDetail: String {
+        if let runtime = model.settings?.codexRuntime, let version = runtime.version {
+            return "Core 正在使用 Codex \(version) · \(runtime.source ?? "自动发现")"
         }
-        return "尚未绑定；Desktop 未发现可验证的 Codex CLI。"
+        if recommendedRuntime != nil {
+            return model.isOnline
+                ? "Desktop 已完成验证；绑定推荐版本后会重启 Core。"
+                : "Desktop 已完成验证；Core 启动时会使用所选版本。"
+        }
+        return model.isScanningCodexRuntimes
+            ? "正在检查 NVM、Homebrew、Codex.app、ChatGPT.app 与系统 PATH。"
+            : "请先安装 Codex CLI，然后重新扫描。"
+    }
+
+    private var runtimePrimaryActionTitle: String {
+        model.isOnline || coreManager.ownsRunningProcess ? "绑定并重启" : "使用推荐版本"
     }
 
     private var privacyCard: some View {

@@ -35,4 +35,50 @@ final class CodexRuntimeDiscoveryTests: XCTestCase {
         XCTAssertEqual(candidates.filter { $0.0 == runtime.path }.count, 1)
         XCTAssertEqual(candidates.first?.1, .desktopPreference)
     }
+
+    func testRecommendationPreservesExplicitPreference() {
+        let candidates = [
+            candidate("/stable", source: .nvm, version: "0.148.0"),
+            candidate("/preferred", source: .codexApp, version: "0.144.0-alpha.4"),
+        ]
+
+        let recommended = CodexRuntimeDiscovery.recommendedCandidate(
+            from: candidates,
+            preferredPath: "/preferred"
+        )
+
+        XCTAssertEqual(recommended?.path, "/preferred")
+    }
+
+    func testRecommendationPreservesValidSavedRuntime() {
+        let candidates = [
+            candidate("/saved", source: .coreConfigured, version: "0.144.0"),
+            candidate("/newer", source: .nvm, version: "0.148.0"),
+        ]
+
+        let recommended = CodexRuntimeDiscovery.recommendedCandidate(from: candidates, preferredPath: nil)
+
+        XCTAssertEqual(recommended?.path, "/saved")
+    }
+
+    func testRecommendationPrefersNewestStableRuntimeOverPrerelease() {
+        let candidates = [
+            candidate("/older", source: .codexApp, version: "0.147.0"),
+            candidate("/preview", source: .chatGPTApp, version: "0.149.0-alpha.9"),
+            candidate("/stable", source: .nvm, version: "0.148.0"),
+            CodexRuntimeCandidate(path: "/invalid", source: .path, version: nil, validationError: "failed"),
+        ]
+
+        let recommended = CodexRuntimeDiscovery.recommendedCandidate(from: candidates, preferredPath: nil)
+
+        XCTAssertEqual(recommended?.path, "/stable")
+    }
+
+    private func candidate(
+        _ path: String,
+        source: CodexRuntimeSource,
+        version: String
+    ) -> CodexRuntimeCandidate {
+        CodexRuntimeCandidate(path: path, source: source, version: version, validationError: nil)
+    }
 }

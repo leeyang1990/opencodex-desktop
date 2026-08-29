@@ -7,7 +7,7 @@
   <h1>OpenCodex Desktop</h1>
   <p><strong>The native macOS runtime and diagnostics layer for OpenCodex</strong></p>
   <p>
-    Manage local Core, Codex Runtime, security checks, and system integration while leaving business configuration to the OpenCodex Console.
+    Manage local Core, Codex CLI, security checks, and system integration while leaving business configuration to the OpenCodex Console.
   </p>
   <p>
     <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111827?style=flat-square&logo=apple&logoColor=white">
@@ -29,17 +29,17 @@
 
 ## Overview
 
-OpenCodex Desktop is a standalone, lightweight macOS client. It is not a fork of OpenCodex, and it neither modifies nor bundles the upstream project. It focuses on local work a web page cannot perform independently: managing Core, discovering Codex runtimes, auditing the host environment, recording sanitized lifecycle events, and integrating with the menu bar, notifications, login items, and Shortcuts. Provider, account, model, and routing administration remains in the OpenCodex Console.
+OpenCodex Desktop is a standalone, lightweight macOS client. It is not a fork of OpenCodex, and it neither modifies nor bundles the upstream project. It focuses on local work a web page cannot perform independently: managing Core, discovering Codex CLI installations, auditing the host environment, recording sanitized lifecycle events, and integrating with the menu bar, notifications, login items, and Shortcuts. Provider, account, model, and routing administration remains in the OpenCodex Console.
 
 ### Highlights
 
-- **Local runtime center** — Present Core, Codex Runtime, uptime, security, and recent events with explicit start, stop, and restart controls.
-- **Codex Runtime management** — Discover and validate CLIs from NVM, Homebrew, Codex.app, ChatGPT.app, and PATH, then let the user bind one explicitly without touching Codex accounts.
+- **Local runtime center** — Present Core, Codex CLI, uptime, security, and recent events with explicit start, stop, and restart controls.
+- **Codex CLI management** — Discover and validate installations from NVM, Homebrew, Codex.app, ChatGPT.app, and PATH, recommend a stable version by default, and keep explicit switching in advanced options without touching Codex accounts.
 - **Trusted Core lifecycle** — Install, launch, and inspect compatible Core releases, remember successful versions, and recover safely when an update fails.
-- **Diagnostics and security audit** — Inspect integrity, ports, disk capacity, token permissions, listening scope, code signature, Runtime, and login items even while Core is offline.
+- **Diagnostics and security audit** — Inspect integrity, ports, disk capacity, token permissions, listening scope, code signature, Codex CLI, and login items even while Core is offline.
 - **Local fault timeline** — Keep seven days of launch, stop, crash, sleep, and wake-check events without recording accounts, prompts, requests, or responses.
 - **Native macOS integration** — Menu bar controls, Dock visibility, login items, optional notifications, App Shortcuts, and safe `opencodex://` navigation.
-- **Sanitized support bundle** — Export environment, security, Runtime, and event results without credentials, account identifiers, request bodies, path inventories, or raw Core logs.
+- **Sanitized support bundle** — Export environment, security, Codex CLI, and event results without credentials, account identifiers, request bodies, path inventories, or raw Core logs.
 - **OpenCodex Console entry** — Open Core's Provider, account, model, log, usage, and integration administration from a dedicated tab.
 - **Local-first design** — The management interface only connects to loopback addresses, and sensitive configuration is never bundled with the app or committed to the repository.
 - **Verifiable installation** — Downloads use pinned HTTPS URLs, with SHA-256 verification for the core, lockfile, and runtime.
