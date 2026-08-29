@@ -2,6 +2,20 @@
 
 All notable changes to OpenCodex Desktop are documented here. The project follows semantic versioning for tagged releases.
 
+## 0.10.1 - 2026-08-30
+
+### Changed
+
+- Simplify Codex CLI selection: show the Core's actual selection first, recommend a stable local CLI, and keep alternate versions under an advanced disclosure.
+- Rename binding language to make clear that Desktop only selects a Codex CLI for the Core process and does not modify the system command or switch accounts.
+- Replace the illustrative mockup with a privacy-sanitized showcase generated from the real app UI.
+- Reduce the Chinese and English READMEs to focused product, installation, development, and security guidance.
+
+### Fixed
+
+- Discover and validate Codex CLI installations from the Desktop process instead of treating a legacy Core process environment as the local installation result.
+- Distinguish the Core's current runtime from historical saved paths so an available CLI is no longer presented as already selected.
+
 ## 0.10.0 - 2026-08-29
 
 ### Added
