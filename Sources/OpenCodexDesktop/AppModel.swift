@@ -14,6 +14,7 @@ final class AppModel: NSObject, ObservableObject {
     @Published var localPortInspection: LocalPortInspection = .unknown
     @Published var codexRuntimeCandidates: [CodexRuntimeCandidate] = []
     @Published var isScanningCodexRuntimes = false
+    @Published var hasScannedCodexRuntimes = false
     @Published var securityAuditReport = SecurityAuditReport.empty
     @Published var showsFirstLaunchEnvironmentCheck = false
 
@@ -62,8 +63,8 @@ final class AppModel: NSObject, ObservableObject {
     func bootstrap() async {
         coreManager.refreshInstallation()
         await refresh()
-        runEnvironmentCheck(presentOnFirstLaunch: true)
         await scanCodexRuntimes()
+        runEnvironmentCheck(presentOnFirstLaunch: true)
         if connectionState == .offline, coreManager.installationState.isInstalled {
             await startService()
         }

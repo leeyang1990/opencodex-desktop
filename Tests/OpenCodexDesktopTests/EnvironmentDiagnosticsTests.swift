@@ -12,6 +12,12 @@ final class EnvironmentDiagnosticsTests: XCTestCase {
         packageSHA256: CoreReleaseCatalog.build.package.sha256,
         installedAt: Date(timeIntervalSince1970: 0)
     )
+    private let validLocalRuntime = CodexRuntimeCandidate(
+        path: "/usr/local/bin/codex",
+        source: .homebrew,
+        version: "0.148.0",
+        validationError: nil
+    )
 
     func testHealthyEnvironmentPassesWithoutAttention() {
         let report = EnvironmentDiagnostics.evaluate(
@@ -22,8 +28,8 @@ final class EnvironmentDiagnosticsTests: XCTestCase {
             portInspection: .core(pid: 42),
             tokenAvailable: true,
             serviceOnline: true,
-            runtime: CodexRuntime(path: "codex", version: "0.148.0", source: "configured", warning: nil),
-            detectedCodexCommand: "/usr/local/bin/codex",
+            localRuntime: validLocalRuntime,
+            runtimeScanCompleted: true,
             loginItemEnabled: true,
             loginItemRequiresApproval: false,
             now: Date(timeIntervalSince1970: 0)
@@ -33,7 +39,7 @@ final class EnvironmentDiagnosticsTests: XCTestCase {
         XCTAssertTrue(report.items.allSatisfy { $0.state == .passed })
     }
 
-    func testOnlineServiceWithoutValidatedRuntimeNeedsAttention() {
+    func testMissingLocalRuntimeNeedsAttentionAfterScan() {
         let report = EnvironmentDiagnostics.evaluate(
             dataDirectoryWritable: true,
             coreDirectoryWritable: true,
@@ -42,8 +48,8 @@ final class EnvironmentDiagnosticsTests: XCTestCase {
             portInspection: .core(pid: 42),
             tokenAvailable: true,
             serviceOnline: true,
-            runtime: CodexRuntime(path: "codex", version: nil, source: "fallback", warning: "runtime missing"),
-            detectedCodexCommand: nil,
+            localRuntime: nil,
+            runtimeScanCompleted: true,
             loginItemEnabled: false,
             loginItemRequiresApproval: false
         )
@@ -52,7 +58,7 @@ final class EnvironmentDiagnosticsTests: XCTestCase {
         XCTAssertEqual(report.item(.codexRuntime)?.state, .attention)
     }
 
-    func testKnownCoreRuntimeWarningIsLocalized() {
+    func testRuntimeScanIsPendingBeforeCompletion() {
         let report = EnvironmentDiagnostics.evaluate(
             dataDirectoryWritable: true,
             coreDirectoryWritable: true,
@@ -61,21 +67,14 @@ final class EnvironmentDiagnosticsTests: XCTestCase {
             portInspection: .core(pid: 42),
             tokenAvailable: true,
             serviceOnline: true,
-            runtime: CodexRuntime(
-                path: "codex",
-                version: nil,
-                source: "fallback",
-                warning: "No validated Codex runtime found; falling back to `codex`."
-            ),
-            detectedCodexCommand: nil,
+            localRuntime: nil,
+            runtimeScanCompleted: false,
             loginItemEnabled: false,
             loginItemRequiresApproval: false
         )
 
-        XCTAssertEqual(
-            report.item(.codexRuntime)?.detail,
-            "未验证到可用的 Codex CLI；Core 正在尝试使用系统命令 codex。请重启 Core 后重新检查。"
-        )
+        XCTAssertEqual(report.item(.codexRuntime)?.state, .pending)
+        XCTAssertEqual(report.item(.codexRuntime)?.title, "Codex CLI 安装")
     }
 
     func testUninstalledCoreProducesPendingItemsInsteadOfFalsePermissionFailure() {
@@ -87,8 +86,8 @@ final class EnvironmentDiagnosticsTests: XCTestCase {
             portInspection: .available,
             tokenAvailable: false,
             serviceOnline: false,
-            runtime: nil,
-            detectedCodexCommand: "/usr/local/bin/codex",
+            localRuntime: validLocalRuntime,
+            runtimeScanCompleted: true,
             loginItemEnabled: false,
             loginItemRequiresApproval: false
         )
@@ -107,8 +106,8 @@ final class EnvironmentDiagnosticsTests: XCTestCase {
             portInspection: .available,
             tokenAvailable: false,
             serviceOnline: false,
-            runtime: nil,
-            detectedCodexCommand: "/usr/local/bin/codex",
+            localRuntime: validLocalRuntime,
+            runtimeScanCompleted: true,
             loginItemEnabled: false,
             loginItemRequiresApproval: true
         )
@@ -126,8 +125,8 @@ final class EnvironmentDiagnosticsTests: XCTestCase {
             portInspection: .occupied(pid: 99),
             tokenAvailable: true,
             serviceOnline: false,
-            runtime: nil,
-            detectedCodexCommand: "/usr/local/bin/codex",
+            localRuntime: validLocalRuntime,
+            runtimeScanCompleted: true,
             loginItemEnabled: false,
             loginItemRequiresApproval: false
         )
@@ -146,8 +145,8 @@ final class EnvironmentDiagnosticsTests: XCTestCase {
             portInspection: .available,
             tokenAvailable: false,
             serviceOnline: false,
-            runtime: nil,
-            detectedCodexCommand: "/usr/local/bin/codex",
+            localRuntime: validLocalRuntime,
+            runtimeScanCompleted: true,
             loginItemEnabled: false,
             loginItemRequiresApproval: false
         )

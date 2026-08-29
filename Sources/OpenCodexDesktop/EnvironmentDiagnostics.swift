@@ -166,8 +166,8 @@ enum EnvironmentDiagnostics {
         portInspection: LocalPortInspection,
         tokenAvailable: Bool,
         serviceOnline: Bool,
-        runtime: CodexRuntime?,
-        detectedCodexCommand: String?,
+        localRuntime: CodexRuntimeCandidate?,
+        runtimeScanCompleted: Bool,
         loginItemEnabled: Bool,
         loginItemRequiresApproval: Bool,
         now: Date = Date()
@@ -238,44 +238,34 @@ enum EnvironmentDiagnostics {
             )
         )
 
-        let runtimeItem: EnvironmentCheckItem
-        if let runtime, let version = runtime.version, runtime.warning == nil {
-            runtimeItem = EnvironmentCheckItem(
-                id: .codexRuntime,
-                title: "Codex CLI",
-                detail: "已验证 Codex \(version)，来源：\(runtime.source ?? "自动发现")。",
-                state: .passed
+        if let localRuntime, localRuntime.isValid, let version = localRuntime.version {
+            items.append(
+                EnvironmentCheckItem(
+                    id: .codexRuntime,
+                    title: "Codex CLI 安装",
+                    detail: "Desktop 已找到并验证 Codex \(version)，来源：\(localRuntime.source.title)。",
+                    state: .passed
+                )
             )
-        } else if serviceOnline, detectedCodexCommand != nil {
-            runtimeItem = EnvironmentCheckItem(
-                id: .codexRuntime,
-                title: "Codex CLI",
-                detail: "Mac 已发现可用的 Codex CLI，但当前 Core 尚未完成版本验证。请在下方 Runtime 中选择后重启 Core。",
-                state: .attention
-            )
-        } else if serviceOnline {
-            runtimeItem = EnvironmentCheckItem(
-                id: .codexRuntime,
-                title: "Codex CLI",
-                detail: localizedRuntimeWarning(runtime?.warning),
-                state: .attention
-            )
-        } else if detectedCodexCommand != nil {
-            runtimeItem = EnvironmentCheckItem(
-                id: .codexRuntime,
-                title: "Codex CLI",
-                detail: "已发现 Codex 可执行文件，Core 启动后会验证具体版本。",
-                state: .passed
+        } else if runtimeScanCompleted {
+            items.append(
+                EnvironmentCheckItem(
+                    id: .codexRuntime,
+                    title: "Codex CLI 安装",
+                    detail: "Desktop 未找到可执行且版本可验证的 Codex CLI；请安装后重新扫描。",
+                    state: .attention
+                )
             )
         } else {
-            runtimeItem = EnvironmentCheckItem(
-                id: .codexRuntime,
-                title: "Codex CLI",
-                detail: "未发现 Codex CLI；请先安装 Codex，或在终端配置 CODEX_CLI_PATH。",
-                state: .attention
+            items.append(
+                EnvironmentCheckItem(
+                    id: .codexRuntime,
+                    title: "Codex CLI 安装",
+                    detail: "Desktop 正在扫描本机 Codex CLI。",
+                    state: .pending
+                )
             )
         }
-        items.append(runtimeItem)
 
         items.append(
             EnvironmentCheckItem(
@@ -291,14 +281,6 @@ enum EnvironmentDiagnostics {
         )
 
         return EnvironmentCheckReport(checkedAt: now, items: items)
-    }
-
-    private static func localizedRuntimeWarning(_ warning: String?) -> String {
-        guard let warning, !warning.isEmpty else { return "服务未能验证可用的 Codex CLI。" }
-        if warning.contains("No validated Codex runtime found") {
-            return "未验证到可用的 Codex CLI；Core 正在尝试使用系统命令 codex。请重启 Core 后重新检查。"
-        }
-        return warning
     }
 
     private static func diskDetail(_ bytes: Int64?) -> String {
@@ -393,11 +375,6 @@ extension AppModel {
 
     func runEnvironmentCheck(presentOnFirstLaunch: Bool = false) {
         let serviceResponding = connectionState == .online || (connectionState == .checking && health != nil)
-        let baseEnvironment = ProcessInfo.processInfo.environment
-        let preparedEnvironment = CodexRuntimeEnvironment.prepared(
-            from: baseEnvironment,
-            dataDirectory: CoreInstallationPaths.dataDirectory
-        )
         let loginItem = LoginItemManager()
         let targetRelease = coreManager.targetRelease
         let inspection = CoreIntegrityInspector.inspect(
@@ -432,8 +409,8 @@ extension AppModel {
             portInspection: portInspection,
             tokenAvailable: tokenAvailable,
             serviceOnline: serviceResponding,
-            runtime: settings?.codexRuntime,
-            detectedCodexCommand: CodexRuntimeEnvironment.detectedCodexCommand(in: preparedEnvironment),
+            localRuntime: codexRuntimeCandidates.first(where: \.isValid),
+            runtimeScanCompleted: hasScannedCodexRuntimes,
             loginItemEnabled: loginItem.isEnabled,
             loginItemRequiresApproval: loginItem.requiresApproval
         )

@@ -14,6 +14,8 @@ extension AppModel {
             dataDirectory: CoreInstallationPaths.dataDirectory,
             preferredPath: coreManager.preferredCodexRuntimePath
         )
+        hasScannedCodexRuntimes = true
+        runEnvironmentCheck()
     }
 
     func useCodexRuntime(_ candidate: CodexRuntimeCandidate) async {

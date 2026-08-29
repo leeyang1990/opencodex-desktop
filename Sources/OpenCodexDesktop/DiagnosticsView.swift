@@ -149,7 +149,7 @@ struct DiagnosticsView: View {
                 )
                 .foregroundStyle(model.settings?.codexRuntime?.version == nil ? AppPalette.warning : AppPalette.success)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Core 当前使用")
+                    Text("Core Runtime 绑定")
                         .font(.callout.weight(.medium))
                     Text(coreRuntimeDetail)
                         .font(.caption)
@@ -316,12 +316,12 @@ struct DiagnosticsView: View {
     private var coreRuntimeDetail: String {
         guard let runtime = model.settings?.codexRuntime else { return "Core 未运行或管理接口不可用。" }
         if let version = runtime.version {
-            return "Codex \(version) · \(runtime.source ?? "自动发现")"
+            return "已绑定 Codex \(version) · \(runtime.source ?? "自动发现")"
         }
         if let local = model.codexRuntimeCandidates.first(where: \.isValid) {
-            return "Core 尚未验证；Mac 已发现 Codex \(local.version ?? "")。可选择后重启 Core。"
+            return "尚未绑定；Desktop 已找到 Codex \(local.version ?? "")。请选择下方版本并重启 Core。"
         }
-        return "Core 尚未验证可用的 Codex CLI。"
+        return "尚未绑定；Desktop 未发现可验证的 Codex CLI。"
     }
 
     private var privacyCard: some View {

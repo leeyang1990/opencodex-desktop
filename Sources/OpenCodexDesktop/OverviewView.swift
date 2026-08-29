@@ -182,13 +182,17 @@ struct OverviewView: View {
     private var codexRuntimeValue: String {
         if let version = model.settings?.codexRuntime?.version { return "v\(version)" }
         if let version = model.codexRuntimeCandidates.first(where: \.isValid)?.version { return "v\(version)" }
-        return "待配置"
+        return model.hasScannedCodexRuntimes ? "未发现" : "扫描中"
     }
 
     private var codexRuntimeDetail: String {
-        if let source = model.settings?.codexRuntime?.source { return source }
-        if model.codexRuntimeCandidates.contains(where: \.isValid) { return "Mac 已发现 · 等待 Core 绑定" }
-        return "打开诊断选择 Runtime"
+        if model.settings?.codexRuntime?.version != nil {
+            return "Core 已绑定 · \(model.settings?.codexRuntime?.source ?? "自动发现")"
+        }
+        if model.codexRuntimeCandidates.contains(where: \.isValid) {
+            return "Desktop 已验证 · Core 未绑定"
+        }
+        return model.hasScannedCodexRuntimes ? "请安装或重新扫描" : "正在扫描本机 Runtime"
     }
 
     private var uptimeValue: String {
