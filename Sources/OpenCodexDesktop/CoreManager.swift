@@ -46,6 +46,21 @@ enum CoreVersionMode: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+enum CodexRuntimePreference {
+    static let defaultsKey = "preferredCodexRuntimePath"
+
+    static func normalized(
+        _ path: String?,
+        fileManager: FileManager = .default
+    ) -> String? {
+        guard let path = path?.trimmingCharacters(in: .whitespacesAndNewlines),
+            path.hasPrefix("/"),
+            fileManager.isExecutableFile(atPath: path)
+        else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: false).standardizedFileURL.path
+    }
+}
+
 enum CoreReleaseCatalog {
     static let build = CoreRelease(
         version: "2.12.0",
@@ -655,12 +670,15 @@ final class CoreManager: ObservableObject {
 
     private static let versionModeDefaultsKey = "coreVersionMode"
     private static let customVersionDefaultsKey = "customCoreVersion"
+    private static let lastKnownGoodVersionDefaultsKey = "lastKnownGoodCoreVersion"
+    private static let previousKnownGoodVersionDefaultsKey = "previousKnownGoodCoreVersion"
 
     @Published private(set) var installationState: CoreInstallationState = .checking
     @Published private(set) var ownsRunningProcess = false
     @Published private(set) var lastExitMessage: String?
     @Published private(set) var versionMode: CoreVersionMode
     @Published private(set) var customVersion: String?
+    @Published private(set) var preferredCodexRuntimePath: String?
 
     let buildRelease = CoreReleaseCatalog.build
     let userSelectableReleases = CoreReleaseCatalog.userSelectable
@@ -676,6 +694,34 @@ final class CoreManager: ObservableObject {
 
     var targetIsBuildRelease: Bool { targetRelease.version == buildRelease.version }
 
+    var installedTrustedReleases: [CoreRelease] {
+        let manifests = Self.discoverInstalledCores().filter(Self.isValidInstallation)
+        return manifests.compactMap { manifest in
+            CoreReleaseCatalog.all.first {
+                Self.isCompatibleManifest(manifest, with: $0)
+            }
+        }
+    }
+
+    var lastKnownGoodRelease: CoreRelease? {
+        guard let version = defaults.string(forKey: Self.lastKnownGoodVersionDefaultsKey),
+            let release = CoreReleaseCatalog.all.first(where: { $0.version == version }),
+            installedTrustedReleases.contains(release)
+        else { return nil }
+        return release
+    }
+
+    var rollbackRelease: CoreRelease? {
+        if let version = defaults.string(forKey: Self.previousKnownGoodVersionDefaultsKey),
+            let release = CoreReleaseCatalog.all.first(where: { $0.version == version }),
+            release.version != targetRelease.version,
+            installedTrustedReleases.contains(release)
+        {
+            return release
+        }
+        return installedTrustedReleases.first { $0.version != targetRelease.version }
+    }
+
     private init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         let selection = CoreReleaseCatalog.normalizedSelection(
@@ -684,7 +730,23 @@ final class CoreManager: ObservableObject {
         )
         versionMode = selection.mode
         customVersion = selection.customVersion
+        preferredCodexRuntimePath = CodexRuntimePreference.normalized(
+            defaults.string(forKey: CodexRuntimePreference.defaultsKey)
+        )
         refreshInstallation()
+    }
+
+    func setPreferredCodexRuntimePath(_ path: String?) throws {
+        if let path {
+            guard let normalized = CodexRuntimePreference.normalized(path) else {
+                throw CoreManagerError.launchFailed("所选 Codex CLI 不再可执行，请重新扫描。")
+            }
+            preferredCodexRuntimePath = normalized
+            defaults.set(normalized, forKey: CodexRuntimePreference.defaultsKey)
+        } else {
+            preferredCodexRuntimePath = nil
+            defaults.removeObject(forKey: CodexRuntimePreference.defaultsKey)
+        }
     }
 
     func setVersionMode(_ mode: CoreVersionMode) {
@@ -704,6 +766,28 @@ final class CoreManager: ObservableObject {
         versionMode = .custom
         persistVersionSelection()
         refreshInstallation()
+    }
+
+    func selectTrustedRelease(_ release: CoreRelease) throws {
+        guard CoreReleaseCatalog.all.contains(release) else {
+            throw CoreManagerError.untrustedVersion(release.version)
+        }
+        if release.version == buildRelease.version {
+            setVersionMode(.build)
+        } else {
+            try selectCustomVersion(release.version)
+        }
+    }
+
+    func recordSuccessfulLaunch(version: String) {
+        let previous = defaults.string(forKey: Self.lastKnownGoodVersionDefaultsKey)
+        guard previous != version else { return }
+        if let previous,
+            CoreReleaseCatalog.all.contains(where: { $0.version == previous })
+        {
+            defaults.set(previous, forKey: Self.previousKnownGoodVersionDefaultsKey)
+        }
+        defaults.set(version, forKey: Self.lastKnownGoodVersionDefaultsKey)
     }
 
     private func persistVersionSelection() {
@@ -775,6 +859,9 @@ final class CoreManager: ObservableObject {
             from: ProcessInfo.processInfo.environment,
             dataDirectory: paths.dataDirectory
         )
+        if let preferredCodexRuntimePath {
+            environment["CODEX_CLI_PATH"] = preferredCodexRuntimePath
+        }
         environment["OPENCODEX_HOME"] = paths.dataDirectory.path
         environment["OPENCODEX_AGENT_DRIVEN"] = "1"
         environment["OPENCODEX_BUN_PATH"] = paths.runtimeExecutable.path
@@ -913,6 +1000,14 @@ final class CoreManager: ObservableObject {
             if lastExitMessage?.isEmpty != false {
                 lastExitMessage = "OpenCodex 内核已退出（状态码 \(terminatedProcess.terminationStatus)）"
             }
+            DesktopEventStore.shared.append(
+                .coreCrashed,
+                detail: "退出状态 \(terminatedProcess.terminationStatus)"
+            )
+            NativeNotificationManager.shared.send(
+                title: "OpenCodex Core 意外退出",
+                body: "打开诊断与修复查看本机状态。"
+            )
         }
         process = nil
         try? logHandle?.close()

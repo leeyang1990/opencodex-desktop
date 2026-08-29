@@ -2,7 +2,30 @@
 
 All notable changes to OpenCodex Desktop are documented here. The project follows semantic versioning for tagged releases.
 
-## Unreleased
+## 0.10.0 - 2026-08-29
+
+### Added
+
+- Add a native Diagnostics & Repair center for Core installation integrity, disk capacity, local port ownership, Codex CLI discovery, management-token presence, and login-item approval.
+- Add safe Core install, start, restart, log, and Finder actions that remain available even when the Core console is offline.
+- Add a sanitized diagnostic ZIP export containing local runtime metadata and check results while explicitly excluding credentials, account identifiers, request bodies, and raw Core logs.
+- Expand the menu bar with Core version/PID status, Console and Diagnostics navigation, restart, and log actions.
+- Add a native runtime center for Core version, Codex CLI, uptime, local security, lifecycle controls, and recent events.
+- Discover and validate Codex CLIs from an explicit Desktop preference, Core state, NVM, Homebrew, Codex.app, ChatGPT.app, and PATH.
+- Add a seven-day, allowlisted local event timeline for Core lifecycle and macOS sleep/wake checks, with optional native failure notifications.
+- Add a local security audit for listening scope, management-token permissions, data-directory permissions, and app-bundle signature structure.
+- Remember known-good Core installations, expose an explicit rollback action, and recover after a failed Core update.
+- Add read-only `opencodex://` navigation routes and App Shortcuts for runtime status, diagnostics, and the OpenCodex Console.
+
+### Changed
+
+- Reposition the native app as a focused macOS launcher: the sidebar now contains only local Core status, Diagnostics & Repair, an OpenCodex Console entry, and macOS client settings.
+- Remove Desktop's duplicate Provider, account-pool, model, routing, runtime-tuning, vision, and image-generation screens, state, API mutations, and tests. Those capabilities now live exclusively in the console provided by Core.
+- Expand sanitized support bundles with security results, validated Runtime metadata, and allowlisted recent events while continuing to exclude raw paths and sensitive payloads.
+
+### Fixed
+
+- Avoid a transient false offline/port warning when diagnostics run during a background health refresh.
 
 ## 0.9.0 - 2026-08-28
 

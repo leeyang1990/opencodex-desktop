@@ -5,9 +5,9 @@
 <div align="center">
   <img src="Assets/AppIcon-Source.png" width="136" alt="OpenCodex Desktop 图标">
   <h1>OpenCodex Desktop</h1>
-  <p><strong>OpenCodex Core 的原生 macOS 控制台</strong></p>
+  <p><strong>OpenCodex 的原生 macOS 运行与诊断层</strong></p>
   <p>
-    安装和管理本地内核，在一个简洁的 SwiftUI 界面中完成 Provider、模型与账号池配置。
+    管理本机 Core、Codex Runtime、安全检查与系统集成；业务配置交给 OpenCodex 控制台。
   </p>
   <p>
     <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111827?style=flat-square&logo=apple&logoColor=white">
@@ -29,54 +29,43 @@
 
 ## 项目简介
 
-OpenCodex Desktop 是独立、轻量的 macOS 启动器，不是 OpenCodex 的源码分支，也不会修改或内置上游项目。应用通过本机管理 API 与 OpenCodex Core 通信，为日常配置和运行维护提供原生桌面体验。
+OpenCodex Desktop 是独立、轻量的 macOS 客户端，不是 OpenCodex 的源码分支，也不会修改或内置上游项目。它专注 Web 页面无法独立完成的本机工作：安装和管理 Core、发现 Codex Runtime、执行安全与环境检查、记录脱敏故障事件，并接入菜单栏、通知、登录项与快捷指令。Provider、账号、模型和路由继续由 OpenCodex 控制台统一管理。
 
 ### 核心能力
 
-- **内核生命周期管理** — 安装、启动并检查与客户端兼容的 OpenCodex Core。
-- **Provider 配置** — 在图形界面中维护服务提供方与连接参数。
-- **模型管理** — 浏览模型目录、维护自定义模型及能力配置。
-- **账号池管理** — 查看账号状态与轮换策略。
+- **本机运行中心** — 集中显示 Core、Codex Runtime、运行时长、安全状态和最近事件，并提供明确的启停与重启操作。
+- **Codex Runtime 管理** — 自动发现 NVM、Homebrew、Codex.app、ChatGPT.app 与 PATH 中的 CLI，验证版本后允许显式选择；不接触 Codex 登录账号。
+- **可信 Core 生命周期** — 安装、启动和检查兼容 Core，保留最近成功版本，并在更新失败时安全回滚。
+- **诊断与安全修复** — 即使 Core 离线，也能检查安装完整性、端口、磁盘、令牌权限、监听范围、代码签名、Runtime 与登录项。
+- **本机故障时间线** — 记录最近 7 天的启动、停止、崩溃、睡眠与唤醒检查事件，不记录账号、Prompt、请求或响应。
+- **macOS 原生集成** — 菜单栏、Dock 显示策略、登录项、可选系统通知、App Shortcuts 与 `opencodex://` 安全导航入口。
+- **脱敏诊断包** — 导出环境、安全、Runtime 和事件结论；不包含凭据、账号标识、请求正文、路径清单或 Core 原始日志。
+- **OpenCodex 控制台入口** — 从独立 Tab 打开由 Core 提供的 Provider、账号、模型、日志、用量与集成管理。
 - **本地优先** — 管理接口仅允许连接回环地址，敏感配置不进入仓库或 App Bundle。
 - **可验证安装** — 下载地址固定为 HTTPS，内核、锁文件和运行时均校验 SHA-256。
 - **客户端更新** — 自动检查本仓库的 GitHub Release，只下载精确匹配的 Apple Silicon DMG，并在打开安装镜像前验证 SHA-256。
-- **后台连续性** — 退出或意外关闭 Desktop 不会停止已运行的 Core，现有 Codex 账号与路由链路继续可用。
+
+### 与 OpenCodex 控制台的分工
+
+| OpenCodex Desktop | OpenCodex 控制台 |
+| :--- | :--- |
+| 可信 Core 安装、启停、更新失败回滚 | Provider、账号、模型与路由管理 |
+| Codex CLI 发现、验证与本机绑定 | Codex 登录与账号池 |
+| 安装完整性、端口、安全审计和脱敏诊断 | 日志、用量、集成与运行时业务配置 |
+| 菜单栏、通知、登录项、Dock、快捷指令 | Core 提供的跨平台管理界面 |
+
+Desktop 的价值不在于重新实现一套控制台，而在于处理控制台页面无法独立完成的 macOS 安装、更新、诊断修复和原生生命周期集成。原生侧栏只保留运行状态、诊断与修复、OpenCodex 控制台入口和客户端设置。
 
 ## 界面预览
 
 <p align="center">
-  <a href="Assets/screenshots/overview.png">
-    <img src="Assets/screenshots/overview.png" width="100%" alt="OpenCodex Desktop 概览界面">
+  <a href="Assets/screenshots/native-control-center-v010.png">
+    <img src="Assets/screenshots/native-control-center-v010.png" width="100%" alt="OpenCodex Desktop 本机运行与诊断能力展示">
   </a>
 </p>
 <p align="center">
-  <sub>服务、Provider、默认路由与本地运行时状态一目了然</sub>
+  <sub>本机运行中心、Runtime 验证与安全诊断的合成示意图；不包含真实设备或账号数据</sub>
 </p>
-
-<table>
-  <tr>
-    <td width="50%">
-      <a href="Assets/screenshots/accounts.png">
-        <img src="Assets/screenshots/accounts.png" alt="OpenCodex Desktop 账号池界面">
-      </a>
-    </td>
-    <td width="50%">
-      <a href="Assets/screenshots/models.png">
-        <img src="Assets/screenshots/models.png" alt="OpenCodex Desktop 模型管理界面">
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <strong>账号池与切换策略</strong><br>
-      <sub>查看健康状态、用量，并配置账号轮换</sub>
-    </td>
-    <td align="center">
-      <strong>模型目录与路由</strong><br>
-      <sub>按 Provider 筛选模型并控制 Codex 可见性</sub>
-    </td>
-  </tr>
-</table>
 
 ## 兼容性
 
@@ -84,7 +73,7 @@ OpenCodex Desktop 是独立、轻量的 macOS 启动器，不是 OpenCodex 的�
 
 | 组件 | 当前版本 |
 | :--- | :--- |
-| OpenCodex Desktop | `0.9.0` (`10`) |
+| OpenCodex Desktop | `0.10.0` (`11`) |
 | OpenCodex Core | `2.12.0` (`6d881db`) |
 | Bun | `1.3.14` |
 | macOS | `14.0` 或更高版本 |
@@ -106,7 +95,7 @@ OpenCodex Desktop/Core/                                          OpenCodex/Data/
 
 桌面端负责安装和运行兼容内核；Provider、账号、令牌等用户数据继续保存在独立数据目录中。升级或卸载内核运行文件不会删除这些配置。
 
-Core 启动后与桌面窗口生命周期解耦。退出或意外关闭 OpenCodex Desktop 不会终止 Core；重新打开客户端会连接现有服务，而不会重复启动。需要停用代理时，应在客户端中明确点击“停止服务”。
+Core 启动后与桌面窗口生命周期解耦。退出或意外关闭 OpenCodex Desktop 不会终止已经运行的 Core；需要停用代理时，应在客户端中明确点击“停止服务”。
 
 ## 开发
 
@@ -144,7 +133,7 @@ dist/OpenCodex Desktop.app
 发布前先更新 `Info.plist` 中的版本号和构建号，然后在干净的 Git 工作区执行：
 
 ```bash
-./scripts/release.sh 0.9.0
+./scripts/release.sh 0.10.0
 ```
 
 脚本会依次运行测试、构建 Apple Silicon App、验证纯 `arm64` 架构及 ad-hoc 签名，并在 `dist/release/` 生成带“应用程序”快捷方式的 DMG、便携 ZIP 以及两者的 SHA-256 文件。它不会打包 Core、运行时、Provider 配置、凭据或日志。
@@ -160,8 +149,8 @@ xattr -dr com.apple.quarantine "/Applications/OpenCodex Desktop.app"
 仓库包含自动发布 Workflow。合并版本修改后创建并推送与 `Info.plist` 一致的 tag：
 
 ```bash
-git tag v0.9.0
-git push origin v0.9.0
+git tag v0.10.0
+git push origin v0.10.0
 ```
 
 GitHub Actions 会在 macOS ARM runner 上执行同一套测试、构建和校验流程，然后自动创建 GitHub Release、生成更新说明并上传 arm64 DMG、ZIP 与对应的 SHA-256 文件。Workflow 不需要签名证书或自定义 Secret，仅使用 GitHub 自动提供且被限制为当前仓库的 token。
@@ -198,6 +187,7 @@ git clone --branch v2.12.0 --single-branch \
 ~/Library/Application Support/OpenCodex Desktop/
 ├── Core/versions/<version>/    # 独立安装的内核与 Bun
 ├── Core/cache/                 # 下载缓存
+├── Events/events.json          # 最多 7 天的脱敏本机事件
 └── Logs/core.log               # 内核运行日志
 
 ~/Library/Application Support/OpenCodex/
@@ -208,6 +198,9 @@ git clone --branch v2.12.0 --single-branch \
 
 - 管理令牌不会发送到非回环地址。
 - API Key、账号标识和请求正文不会被持久化到日志。
+- 事件时间线只接受固定类型的本机生命周期事件，最多保留 7 天，并以当前用户专属权限写入。
+- 安全审计检查 Core 的实际监听地址、管理令牌和数据目录权限，以及 App Bundle 签名结构。
+- 导出的诊断包只包含本机运行元数据与检查结论，不包含管理令牌内容、账号标识、请求正文或 Core 原始日志。
 - 下载产物必须使用固定 HTTPS 地址和精确摘要。
 - 桌面端更新内核前必须明确验证兼容版本。
 - 客户端更新只接受本仓库正式 GitHub Release 中精确命名的 arm64 DMG，并验证配套 SHA-256 文件后才允许打开。

@@ -45,6 +45,29 @@ extension SettingsView {
 
             Divider()
 
+            settingRow(
+                title: "系统通知",
+                detail: "在 Core 异常退出、唤醒检查失败或更新需要处理时显示 macOS 通知"
+            ) {
+                Toggle(
+                    "",
+                    isOn: Binding(
+                        get: { notificationManager.isEnabled },
+                        set: { enabled in Task { await notificationManager.setEnabled(enabled) } }
+                    )
+                )
+                .labelsHidden()
+                .toggleStyle(.switch)
+            }
+
+            if notificationManager.authorizationDenied {
+                Label("通知权限已被系统拒绝，请在“系统设置 › 通知”中允许 OpenCodex Desktop。", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(AppPalette.warning)
+            }
+
+            Divider()
+
             clientUpdateStatus
         }
         .cardStyle()
@@ -116,33 +139,6 @@ extension SettingsView {
         return .secondary
     }
 
-    var environmentCheckSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                sectionHeader("环境与权限检查", symbol: "checkmark.shield")
-                Spacer()
-                Button("重新检查") { model.runEnvironmentCheck() }
-            }
-
-            EnvironmentCheckList(report: model.environmentReport)
-
-            if model.environmentReport.requiresLoginItemApproval {
-                HStack {
-                    Text("登录项需要在系统设置中由你明确批准。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button("打开登录项设置") { loginItem.openSystemSettings() }
-                }
-            }
-
-            Text("自检只验证本机路径、文件访问和运行时状态，不读取 Provider 密钥，也不会申请完全磁盘访问、辅助功能或屏幕录制权限。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .cardStyle()
-    }
-
     var connectionSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             sectionHeader("连接", symbol: "network")
@@ -176,72 +172,6 @@ extension SettingsView {
                     Task { await model.saveConnection() }
                 }
                 .buttonStyle(.borderedProminent)
-            }
-        }
-        .cardStyle()
-    }
-
-    var runtimeSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                sectionHeader("运行设置", symbol: "slider.horizontal.3")
-                Spacer()
-                if isSaving { ProgressView().controlSize(.small) }
-            }
-
-            settingRow(
-                title: "账号选择器",
-                detail: "在 Codex 模型列表中显示账号池选择项"
-            ) {
-                Toggle("", isOn: $accountPicker)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-            }
-
-            Divider()
-
-            settingRow(
-                title: "流式模式",
-                detail: "控制响应流的兼容与性能策略"
-            ) {
-                Picker("", selection: $streamMode) {
-                    Text("自动").tag("auto")
-                    Text("兼容").tag("legacy-tee")
-                    Text("高性能").tag("eager-relay")
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                .frame(width: 220)
-            }
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("内存预算").font(.callout.weight(.medium))
-                        Text("OpenCodex 自有缓存与流状态的内存上限")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Text("\(memoryBudget) MB")
-                        .font(.callout.monospacedDigit().weight(.medium))
-                        .foregroundStyle(AppPalette.accent)
-                }
-                Slider(
-                    value: Binding(
-                        get: { Double(memoryBudget) },
-                        set: { memoryBudget = Int($0.rounded()) }
-                    ), in: 64...4096, step: 64)
-            }
-
-            HStack {
-                Spacer()
-                Button("还原") { loadValues() }
-                    .disabled(isSaving)
-                Button("保存运行设置") { saveRuntimeSettings() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isSaving)
             }
         }
         .cardStyle()
@@ -304,12 +234,13 @@ extension SettingsView {
                     .disabled(!coreManager.installationState.isInstalled)
                 Spacer()
                 if coreManager.installationState.isInstalled {
+                    if let rollback = coreManager.rollbackRelease {
+                        Button("回滚到 \(rollback.version)") { Task { await model.rollbackCore() } }
+                            .disabled(model.isRefreshing)
+                    }
                     Button("卸载", role: .destructive) { confirmUninstall = true }
                     Button("重新安装") { Task { await model.installCore() } }
                     if model.isOnline || coreManager.ownsRunningProcess {
-                        if model.isOnline {
-                            Button("Web 控制台") { model.openDashboard() }
-                        }
                         Button(model.isOnline ? "停止服务" : "停止启动", role: .destructive) {
                             Task { await model.stopService() }
                         }
@@ -389,100 +320,6 @@ extension SettingsView {
 
     var coreVersionSelectionDisabled: Bool {
         model.isOnline || coreManager.ownsRunningProcess || coreManager.installationState.isBusy
-    }
-
-    var imageGenerationSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                sectionHeader("图片生成", symbol: "photo.badge.plus")
-                Spacer()
-                if isSaving { ProgressView().controlSize(.small) }
-            }
-
-            settingRow(
-                title: "自定义生图 Provider",
-                detail: customImageProvider
-                    ? "图片请求固定发送到所选 Provider，不回退到 GPT 账号"
-                    : "使用 GPT 登录账号自动路由，必要时由 Core 选择可用后端"
-            ) {
-                Toggle("", isOn: $customImageProvider)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .disabled(isSaving)
-                    .onChange(of: customImageProvider) { _, enabled in
-                        if !enabled || !imageProvider.isEmpty { saveImageSettingsIfChanged() }
-                    }
-            }
-
-            if customImageProvider {
-                Divider()
-                settingRow(
-                    title: "生图 Provider",
-                    detail: "可选择现有 API Key Provider；App 会自动创建隔离的生图路由"
-                ) {
-                    Picker("", selection: $imageProvider) {
-                        Text("请选择").tag("")
-                        ForEach(imageProviderOptions, id: \.name) { provider in
-                            Text(provider.name).tag(provider.name)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 240)
-                    .disabled(isSaving)
-                    .onChange(of: imageProvider) { _, _ in saveImageSettingsIfChanged() }
-                }
-            }
-
-            Divider()
-            settingRow(
-                title: "请求超时",
-                detail: "图片生成或编辑请求的最长等待时间"
-            ) {
-                Picker("", selection: $imageTimeoutSeconds) {
-                    ForEach(AppConstants.ImageGeneration.selectableTimeoutSeconds, id: \.self) { seconds in
-                        Text("\(seconds) 秒").tag(seconds)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 120)
-                .disabled(isSaving)
-                .onChange(of: imageTimeoutSeconds) { _, _ in saveImageSettingsIfChanged() }
-            }
-        }
-        .cardStyle()
-    }
-
-    var visionRoutingSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                sectionHeader("图像理解", symbol: "eye")
-                Spacer()
-                if isSaving { ProgressView().controlSize(.small) }
-            }
-            settingRow(
-                title: "强制 GPT 视觉旁路",
-                detail: forceGPTVision
-                    ? "GPT 先识别图片，再把文字描述交给当前模型"
-                    : "图片直接发送给当前模型；文本模型可能返回不支持图片"
-            ) {
-                Toggle("", isOn: $forceGPTVision)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .disabled(isSaving)
-                    .onChange(of: forceGPTVision) { _, enabled in
-                        guard loaded, enabled != model.forceGPTVision else { return }
-                        saveVisionSettings()
-                    }
-            }
-        }
-        .cardStyle()
-    }
-
-    var imageProviderOptions: [Provider] {
-        model.providers.filter {
-            !$0.disabled && ($0.authMode == nil || $0.authMode == "key") && $0.hasApiKey
-                && !$0.name.hasSuffix(".images") && !$0.name.hasSuffix(".opencodex-images")
-        }
     }
 
     @ViewBuilder
@@ -612,57 +449,5 @@ extension SettingsView {
     func loadValues() {
         host = model.connectionHost
         port = model.connectionPort
-        if let settings = model.settings {
-            codexAutoStart = settings.codexAutoStart
-            streamMode = settings.streamMode
-            memoryBudget = settings.appOwnedMemoryBudgetMb
-            accountPicker = settings.codexAccountPickerEnabled
-        }
-        let imageSettings = model.imageGenerationSettings
-        customImageProvider = imageSettings.usesCustomProvider
-        imageProvider = imageSettings.provider
-        imageTimeoutSeconds = max(1, imageSettings.timeoutMs / 1_000)
-        forceGPTVision = model.forceGPTVision
-        loaded = true
-    }
-
-    func saveRuntimeSettings() {
-        guard loaded else { return }
-        isSaving = true
-        Task {
-            _ = await model.saveSettings(
-                codexAutoStart: codexAutoStart,
-                streamMode: streamMode,
-                memoryBudget: memoryBudget,
-                accountPicker: accountPicker
-            )
-            isSaving = false
-        }
-    }
-
-    func saveImageSettingsIfChanged() {
-        guard loaded else { return }
-        let settings = ImageGenerationSettings(
-            usesCustomProvider: customImageProvider,
-            provider: imageProvider,
-            timeoutMs: imageTimeoutSeconds * 1_000
-        )
-        guard settings != model.imageGenerationSettings,
-            !settings.usesCustomProvider || !settings.provider.isEmpty
-        else { return }
-        isSaving = true
-        Task {
-            _ = await model.saveImageGenerationSettings(settings)
-            isSaving = false
-        }
-    }
-
-    func saveVisionSettings() {
-        guard loaded else { return }
-        isSaving = true
-        Task {
-            _ = await model.saveVisionRouting(forceGPTVision: forceGPTVision)
-            isSaving = false
-        }
     }
 }

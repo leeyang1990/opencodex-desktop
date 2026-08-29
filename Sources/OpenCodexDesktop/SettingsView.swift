@@ -7,19 +7,10 @@ struct SettingsView: View {
     @ObservedObject var coreManager = CoreManager.shared
     @ObservedObject var applicationAppearance = ApplicationAppearance.shared
     @ObservedObject var appUpdateManager = AppUpdateManager.shared
+    @ObservedObject var notificationManager = NativeNotificationManager.shared
 
     @State var host = AppConstants.Connection.defaultHost
     @State var port = AppConstants.Connection.defaultPort
-    @State var codexAutoStart = true
-    @State var streamMode = "auto"
-    @State var memoryBudget = 256
-    @State var accountPicker = false
-    @State var customImageProvider = false
-    @State var imageProvider = ""
-    @State var imageTimeoutSeconds = 300
-    @State var forceGPTVision = false
-    @State var loaded = false
-    @State var isSaving = false
     @State var confirmUninstall = false
 
     var body: some View {
@@ -27,24 +18,13 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 22) {
                 PageHeader(
                     title: "设置",
-                    subtitle: "配置客户端连接与 OpenCodex 运行方式"
+                    subtitle: "配置 Desktop 连接与 macOS 原生能力"
                 )
 
                 connectionSection
                 applicationSection
                 coreSection
-                environmentCheckSection
-
-                if model.isOnline {
-                    runtimeSection
-                    visionRoutingSection
-                    imageGenerationSection
-                    securitySection
-                } else {
-                    Label("连接服务后可编辑运行设置", systemImage: "info.circle")
-                        .foregroundStyle(.secondary)
-                        .cardStyle()
-                }
+                securitySection
             }
             .padding(28)
             .frame(maxWidth: 820, alignment: .leading)
@@ -54,8 +34,6 @@ struct SettingsView: View {
             loadValues()
             model.runEnvironmentCheck()
         }
-        .onChange(of: model.settings?.port) { _, _ in loadValues() }
-        .onChange(of: model.settings?.codexRuntime?.version) { _, _ in model.runEnvironmentCheck() }
         .confirmationDialog(
             "卸载 OpenCodex 内核？",
             isPresented: $confirmUninstall,

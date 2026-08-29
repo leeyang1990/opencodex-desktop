@@ -10,9 +10,13 @@ extension AppModel {
             try await waitForServiceReadiness(timeout: AppConstants.Service.startupTimeout)
             await refresh(showSpinner: false)
             guard isOnline else { throw CoreManagerError.launchFailed("内核已响应，但管理接口尚未就绪") }
+            coreManager.recordSuccessfulLaunch(version: coreManager.targetRelease.version)
             operationMessage = "OpenCodex 内核已启动"
+            eventStore.append(.coreStarted, detail: "Core \(health?.version ?? coreManager.targetRelease.version)")
+            runEnvironmentCheck()
         } catch {
             errorMessage = error.localizedDescription
+            runEnvironmentCheck()
         }
     }
 
@@ -25,10 +29,13 @@ extension AppModel {
             await coreManager.stop()
             await refresh(showSpinner: false)
             operationMessage = "内核已停止"
+            eventStore.append(.coreStopped)
+            runEnvironmentCheck()
         } catch {
             await coreManager.stop()
             await refresh(showSpinner: false)
             errorMessage = error.localizedDescription
+            runEnvironmentCheck()
         }
     }
 
@@ -44,13 +51,38 @@ extension AppModel {
     func installCore() async {
         isRefreshing = true
         defer { isRefreshing = false }
+        let recoveryRelease = coreManager.lastKnownGoodRelease
         do {
             if isOnline || coreManager.ownsRunningProcess { await stopService() }
             try await coreManager.installTargetCore()
+            eventStore.append(.coreInstalled, detail: "Core \(coreManager.targetRelease.version)")
             operationMessage = "OpenCodex Core \(coreManager.targetRelease.version) 已安装"
             await startService()
+            if !isOnline, let recoveryRelease,
+                recoveryRelease.version != coreManager.targetRelease.version
+            {
+                await recoverCore(using: recoveryRelease)
+            }
         } catch {
-            errorMessage = error.localizedDescription
+            let originalError = error.localizedDescription
+            if let recoveryRelease {
+                await recoverCore(using: recoveryRelease)
+                if isOnline {
+                    operationMessage = "安装失败，已恢复 Core \(recoveryRelease.version)"
+                    errorMessage = nil
+                    return
+                }
+            }
+            errorMessage = originalError
+        }
+    }
+
+    func rollbackCore() async {
+        guard let release = coreManager.rollbackRelease else { return }
+        await recoverCore(using: release)
+        if isOnline {
+            eventStore.append(.coreRollback, detail: "Core \(release.version)")
+            operationMessage = "已回滚到 Core \(release.version)"
         }
     }
 
@@ -72,7 +104,7 @@ extension AppModel {
     }
 
     func openDashboard() {
-        if let url = URL(string: baseAddress) { NSWorkspace.shared.open(url) }
+        if let dashboardURL { NSWorkspace.shared.open(dashboardURL) }
     }
 
     func waitForServiceReadiness(timeout: Duration) async throws {
@@ -93,5 +125,16 @@ extension AppModel {
         }
         if let error = lastError as? CoreManagerError { throw error }
         throw CoreManagerError.launchFailed("内核未在限定时间内就绪，请查看内核日志")
+    }
+
+    private func recoverCore(using release: CoreRelease) async {
+        errorMessage = nil
+        if isOnline || coreManager.ownsRunningProcess { await stopService() }
+        do {
+            try coreManager.selectTrustedRelease(release)
+            await startService()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }

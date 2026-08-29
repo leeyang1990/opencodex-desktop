@@ -1,34 +1,20 @@
+import AppKit
 import Foundation
 
 @MainActor
 final class AppModel: ObservableObject {
     @Published var connectionState: ConnectionState = .checking
     @Published var health: HealthResponse?
-    @Published var config: ConfigSummary?
     @Published var settings: RuntimeSettings?
-    @Published var imageGenerationSettings: ImageGenerationSettings = .defaults
-    @Published var forceGPTVision = false
-    @Published var providers: [Provider] = []
-    @Published var presets: [ProviderPreset] = []
-    @Published var codexAccounts: [CodexAccount] = []
-    @Published var accountPoolStatus: CodexAccountPoolStatus?
-    @Published var managedModels: [ManagedModel] = []
-    @Published var selectedModels: [String: [String]] = [:]
-    @Published var availableModels: [String: [String]] = [:]
-    @Published var liveModelCounts: [String: Int] = [:]
-    @Published var modelContextCaps: [String: Int] = [:]
-    @Published var globalModelContextCap = AppConstants.Models.defaultContextCap
-    @Published var accountLoginState: AccountLoginState = .idle
     @Published var isRefreshing = false
-    @Published var isRefreshingAccounts = false
-    @Published var isRefreshingModels = false
-    @Published var busyProvider: String?
-    @Published var busyAccount: String?
-    @Published var busyModel: String?
-    @Published var busyModelProvider: String?
     @Published var operationMessage: String?
     @Published var errorMessage: String?
     @Published var environmentReport = EnvironmentCheckReport.empty
+    @Published var coreIntegrityInspection: CoreIntegrityInspection = .missing
+    @Published var localPortInspection: LocalPortInspection = .unknown
+    @Published var codexRuntimeCandidates: [CodexRuntimeCandidate] = []
+    @Published var isScanningCodexRuntimes = false
+    @Published var securityAuditReport = SecurityAuditReport.empty
     @Published var showsFirstLaunchEnvironmentCheck = false
 
     @Published var connectionHost: String
@@ -37,19 +23,17 @@ final class AppModel: ObservableObject {
     let client: OpenCodexAPIClient
     let coreManager = CoreManager.shared
     let defaults: UserDefaults
-    var accountLoginTask: Task<Void, Never>?
-    let imageGenerationSettingsStore: ImageGenerationSettingsStore
-    let visionRoutingSettingsStore: VisionRoutingSettingsStore
+    let eventStore = DesktopEventStore.shared
+    var notificationManager: NativeNotificationManager { .shared }
+
+    private var workspaceObservers: [NSObjectProtocol] = []
+    private var serviceMonitorTask: Task<Void, Never>?
 
     init(
         defaults: UserDefaults = .standard,
-        client: OpenCodexAPIClient? = nil,
-        imageGenerationSettingsStore: ImageGenerationSettingsStore = ImageGenerationSettingsStore(),
-        visionRoutingSettingsStore: VisionRoutingSettingsStore = VisionRoutingSettingsStore()
+        client: OpenCodexAPIClient? = nil
     ) {
         self.defaults = defaults
-        self.imageGenerationSettingsStore = imageGenerationSettingsStore
-        self.visionRoutingSettingsStore = visionRoutingSettingsStore
         let initialHost = defaults.string(forKey: "connectionHost") ?? AppConstants.Connection.defaultHost
         let savedPort = defaults.integer(forKey: "connectionPort")
         let initialPort = savedPort == 0 ? AppConstants.Connection.defaultPort : savedPort
@@ -59,21 +43,30 @@ final class AppModel: ObservableObject {
     }
 
     var isOnline: Bool { connectionState == .online }
-    var enabledProviders: [Provider] { providers.filter { !$0.disabled } }
-    var defaultProvider: Provider? { providers.first { $0.name == config?.defaultProvider } }
     var baseAddress: String { "http://\(connectionHost):\(connectionPort)" }
+    var dashboardURL: URL? {
+        let normalizedHost = connectionHost.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard AppConstants.Connection.loopbackHosts.contains(normalizedHost), (1...65_535).contains(connectionPort)
+        else { return nil }
+        var components = URLComponents()
+        components.scheme = "http"
+        components.host = normalizedHost == "::1" ? "[::1]" : normalizedHost
+        components.port = connectionPort
+        components.path = "/v1"
+        return components.url
+    }
     var tokenAvailable: Bool { AdminTokenProvider().load() != nil }
     var tokenPath: String { AdminTokenProvider().tokenFileURL.path }
 
     func bootstrap() async {
         coreManager.refreshInstallation()
-        forceGPTVision = visionRoutingSettingsStore.load()
-        runEnvironmentCheck(presentOnFirstLaunch: true)
         await refresh()
+        runEnvironmentCheck(presentOnFirstLaunch: true)
+        await scanCodexRuntimes()
         if connectionState == .offline, coreManager.installationState.isInstalled {
             await startService()
-            runEnvironmentCheck()
         }
+        startSystemMonitoring()
     }
 
     func refresh(showSpinner: Bool = true) async {
@@ -89,19 +82,9 @@ final class AppModel: ObservableObject {
         }
 
         do {
-            async let configValue = client.config()
-            async let settingsValue = client.settings()
-            async let providerValue = client.providers()
-            async let presetValue = client.presets()
-            let loaded = try await (configValue, settingsValue, providerValue, presetValue)
-            config = loaded.0
-            settings = loaded.1
-            imageGenerationSettings = (try? imageGenerationSettingsStore.load()) ?? .defaults
-            providers = loaded.2.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            presets = loaded.3
+            settings = try await client.settings()
             connectionState = .online
             errorMessage = nil
-            await refreshAccounts(showErrors: false)
         } catch OpenCodexAPIError.missingAdminToken {
             connectionState = .unauthorized
             errorMessage = OpenCodexAPIError.missingAdminToken.localizedDescription
@@ -117,16 +100,54 @@ final class AppModel: ObservableObject {
     private func resetRemoteState() {
         connectionState = .offline
         health = nil
-        providers = []
-        managedModels = []
-        selectedModels = [:]
-        availableModels = [:]
-        liveModelCounts = [:]
-        modelContextCaps = [:]
-        codexAccounts = []
-        accountPoolStatus = nil
-        config = nil
         settings = nil
-        imageGenerationSettings = (try? imageGenerationSettingsStore.load()) ?? .defaults
+    }
+
+    private func startSystemMonitoring() {
+        guard workspaceObservers.isEmpty else { return }
+        let center = NSWorkspace.shared.notificationCenter
+        workspaceObservers.append(
+            center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) {
+                [weak self] _ in
+                Task { @MainActor in self?.eventStore.append(.systemSleep) }
+            }
+        )
+        workspaceObservers.append(
+            center.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) {
+                [weak self] _ in
+                Task { @MainActor in await self?.handleSystemWake() }
+            }
+        )
+        serviceMonitorTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                guard let self, !Task.isCancelled else { return }
+                let wasOnline = self.isOnline
+                await self.refresh(showSpinner: false)
+                if wasOnline, !self.isOnline {
+                    self.eventStore.append(.coreCrashed, detail: "健康检查未响应")
+                    self.notificationManager.send(
+                        title: "OpenCodex Core 已离线",
+                        body: "打开诊断与修复查看本机状态。"
+                    )
+                } else if !wasOnline, self.isOnline {
+                    self.eventStore.append(.serviceRecovered)
+                }
+            }
+        }
+    }
+
+    private func handleSystemWake() async {
+        eventStore.append(.systemWake)
+        try? await Task.sleep(for: .seconds(2))
+        await refresh(showSpinner: false)
+        runEnvironmentCheck()
+        if !isOnline {
+            eventStore.append(.wakeCheckFailed, detail: "Core 管理接口未响应")
+            notificationManager.send(
+                title: "唤醒后 Core 未恢复",
+                body: "打开诊断与修复检查进程、端口和运行时。"
+            )
+        }
     }
 }

@@ -3,7 +3,7 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject private var model: AppModel
     @ObservedObject private var appUpdateManager = AppUpdateManager.shared
-    @State private var selection: SidebarDestination? = .overview
+    @ObservedObject private var navigation = AppNavigation.shared
 
     var body: some View {
         NavigationSplitView {
@@ -32,6 +32,11 @@ struct RootView: View {
             }
         }
         .animation(.snappy, value: model.operationMessage)
+        .onOpenURL { url in
+            guard let destination = DeepLinkPolicy.destination(for: url) else { return }
+            navigation.show(destination)
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 
     private var sidebar: some View {
@@ -56,43 +61,9 @@ struct RootView: View {
             .padding(.top, 16)
             .padding(.bottom, 10)
 
-            VStack(spacing: 4) {
-                ForEach(SidebarDestination.allCases) { destination in
-                    Button {
-                        selection = destination
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: destination.symbol)
-                                .font(.system(size: 14, weight: .medium))
-                                .frame(width: 18, alignment: .center)
-                            Text(destination.title)
-                                .font(.callout.weight(selection == destination ? .semibold : .regular))
-                                .fixedSize(horizontal: true, vertical: false)
-                            if destination == .settings, appUpdateManager.availableRelease != nil {
-                                Text("更新")
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(AppPalette.accent, in: Capsule())
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .foregroundStyle(selection == destination ? AppPalette.accent : Color.primary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 7)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            selection == destination ? AppPalette.accent.opacity(0.12) : Color.clear,
-                            in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        )
-                        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .help(destination.title)
-                    .accessibilityLabel(destination.title)
-                    .accessibilityAddTraits(selection == destination ? .isSelected : [])
-                }
+            VStack(alignment: .leading, spacing: 12) {
+                sidebarGroup("原生能力", destinations: [.overview, .diagnostics, .settings])
+                sidebarGroup("OpenCodex", destinations: [.dashboard])
             }
             .padding(.horizontal, 10)
             .padding(.top, 4)
@@ -119,17 +90,65 @@ struct RootView: View {
         }
     }
 
+    private func sidebarGroup(_ title: String, destinations: [SidebarDestination]) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 10)
+
+            ForEach(destinations) { destination in
+                destinationButton(destination)
+            }
+        }
+    }
+
+    private func destinationButton(_ destination: SidebarDestination) -> some View {
+        Button {
+            navigation.show(destination)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: destination.symbol)
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 18, alignment: .center)
+                Text(destination.title)
+                    .font(.callout.weight(navigation.selection == destination ? .semibold : .regular))
+                    .fixedSize(horizontal: true, vertical: false)
+                if destination == .settings, appUpdateManager.availableRelease != nil {
+                    Text("更新")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(AppPalette.accent, in: Capsule())
+                }
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(navigation.selection == destination ? AppPalette.accent : Color.primary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                navigation.selection == destination ? AppPalette.accent.opacity(0.12) : Color.clear,
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help(destination.title)
+        .accessibilityLabel(destination.title)
+        .accessibilityAddTraits(navigation.selection == destination ? .isSelected : [])
+    }
+
     @ViewBuilder
     private var detail: some View {
-        switch selection ?? .overview {
+        switch navigation.selection {
         case .overview:
             OverviewView()
-        case .providers:
-            ProvidersView()
-        case .accounts:
-            AccountsView()
-        case .models:
-            ModelsView()
+        case .diagnostics:
+            DiagnosticsView()
+        case .dashboard:
+            WebDashboardView()
         case .settings:
             SettingsView()
         }

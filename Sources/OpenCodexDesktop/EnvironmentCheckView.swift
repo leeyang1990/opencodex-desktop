@@ -16,7 +16,7 @@ struct FirstLaunchEnvironmentCheckView: View {
             EnvironmentCheckList(report: model.environmentReport)
 
             if model.environmentReport.needsAttention {
-                Label("有项目需要处理。你可以稍后在“设置 › 环境与权限检查”中重新检查。", systemImage: "exclamationmark.triangle.fill")
+                Label("有项目需要处理。你可以稍后在“诊断与修复”中重新检查。", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(AppPalette.warning)
             } else {

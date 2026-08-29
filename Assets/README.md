@@ -13,6 +13,10 @@ The build script generates all required `.icns` sizes from this source.
 
 Product screenshots used by the repository README live in `screenshots/`:
 
-- `overview.png` — service and provider overview.
-- `accounts.png` — account pool and rotation strategy.
-- `models.png` — model catalog and visibility controls.
+- `native-control-center-v010.png` — privacy-safe synthetic showcase of the
+  native runtime center and diagnostics added in Desktop 0.10.0. It was
+  generated with OpenAI ImageGen and contains no device, account, or log data.
+
+Older screenshots remain only as historical design references and are not used
+by the current README because Provider, account, and model management now lives
+in the Core-provided OpenCodex Console.

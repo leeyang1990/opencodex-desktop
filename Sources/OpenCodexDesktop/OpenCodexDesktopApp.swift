@@ -7,10 +7,12 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        DesktopEventStore.shared.append(.appStarted)
         Task { await AppUpdateManager.shared.checkForUpdatesIfNeeded() }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        DesktopEventStore.shared.append(.appStopped)
         CoreManager.shared.detachOwnedProcess()
     }
 }
@@ -59,16 +61,35 @@ private struct MenuBarContent: View {
     @Environment(\.openWindow) private var openWindow
     @ObservedObject private var coreManager = CoreManager.shared
     @ObservedObject private var appUpdateManager = AppUpdateManager.shared
+    @ObservedObject private var navigation = AppNavigation.shared
 
     var body: some View {
-        Text(model.connectionState.label)
+        VStack(alignment: .leading, spacing: 2) {
+            Text(model.connectionState.label)
+                .font(.headline)
+            if let version = model.health?.version {
+                Text("OpenCodex Core \(version)\(model.health?.pid.map { " · PID \($0)" } ?? "")")
+                    .font(.caption)
+            } else {
+                Text("已选择 Core \(coreManager.targetRelease.version)")
+                    .font(.caption)
+            }
+        }
         Divider()
         Button("打开 OpenCodex Desktop") {
-            openWindow(id: "main")
-            NSApp.activate(ignoringOtherApps: true)
+            show(.overview)
+        }
+        Button("打开 OpenCodex 控制台") {
+            show(.dashboard)
+        }
+        Button("诊断与修复") {
+            show(.diagnostics)
         }
         Button("刷新状态") {
-            Task { await model.refresh(showSpinner: false) }
+            Task {
+                await model.refresh(showSpinner: false)
+                model.runEnvironmentCheck()
+            }
         }
         if let release = appUpdateManager.availableRelease {
             Button("下载并打开客户端更新 \(release.version)") {
@@ -92,6 +113,9 @@ private struct MenuBarContent: View {
         }
         Divider()
         if model.isOnline {
+            Button("重启本地服务") {
+                Task { await model.restartService() }
+            }
             Button("停止本地服务") {
                 Task { await model.stopService() }
             }
@@ -106,7 +130,15 @@ private struct MenuBarContent: View {
                 Task { await model.installCore() }
             }
         }
+        Button("查看 Core 日志") { model.openCoreLog() }
+            .disabled(!FileManager.default.fileExists(atPath: CoreInstallationPaths.logFile.path))
         Divider()
         Button("退出客户端（Core 继续运行）") { NSApp.terminate(nil) }
+    }
+
+    private func show(_ destination: SidebarDestination) {
+        navigation.show(destination)
+        openWindow(id: "main")
+        NSApp.activate(ignoringOtherApps: true)
     }
 }

@@ -2,17 +2,19 @@ import SwiftUI
 
 struct OverviewView: View {
     @EnvironmentObject private var model: AppModel
+    @ObservedObject private var navigation = AppNavigation.shared
+    @ObservedObject private var eventStore = DesktopEventStore.shared
 
     private let columns = [
-        GridItem(.adaptive(minimum: 190, maximum: 260), spacing: 14)
+        GridItem(.adaptive(minimum: 190, maximum: 280), spacing: 14)
     ]
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 PageHeader(
-                    title: "概览",
-                    subtitle: "本机 OpenCodex 服务与模型路由状态"
+                    title: "运行状态",
+                    subtitle: "管理本机 OpenCodex Core 的安装与运行"
                 )
 
                 if model.isOnline {
@@ -41,72 +43,107 @@ struct OverviewView: View {
         VStack(alignment: .leading, spacing: 22) {
             LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
                 MetricCard(
-                    title: "服务",
+                    title: "OpenCodex Core",
                     value: model.health?.version.map { "v\($0)" } ?? "运行中",
-                    detail: model.health?.pid.map { "PID \($0)" } ?? model.baseAddress,
+                    detail: "本机回环 · 端口 \(model.connectionPort)",
                     symbol: "bolt.horizontal.circle.fill",
                     tint: AppPalette.success
                 )
                 MetricCard(
-                    title: "Providers",
-                    value: "\(model.enabledProviders.count) 个已启用",
-                    detail: "共 \(model.providers.count) 个配置",
-                    symbol: "point.3.connected.trianglepath.dotted"
-                )
-                MetricCard(
-                    title: "默认路由",
-                    value: model.defaultProvider?.name ?? model.config?.defaultProvider ?? "—",
-                    detail: model.defaultProvider?.displayModel ?? "自动选择模型",
-                    symbol: "arrow.triangle.branch",
-                    tint: Color(red: 0.57, green: 0.35, blue: 0.92)
-                )
-                MetricCard(
                     title: "Codex Runtime",
-                    value: model.settings?.codexRuntime?.version ?? "已连接",
-                    detail: model.settings?.codexRuntime?.path ?? "等待运行时信息",
+                    value: codexRuntimeValue,
+                    detail: codexRuntimeDetail,
                     symbol: "terminal.fill",
-                    tint: Color(red: 0.17, green: 0.62, blue: 0.77)
+                    tint: model.settings?.codexRuntime?.version == nil ? AppPalette.warning : AppPalette.accent
+                )
+                MetricCard(
+                    title: "稳定运行",
+                    value: uptimeValue,
+                    detail: model.health?.pid.map { "Core 进程 \($0)" } ?? "运行状态已连接",
+                    symbol: "clock.fill",
+                    tint: AppPalette.accent
+                )
+                MetricCard(
+                    title: "本机安全",
+                    value: securityValue,
+                    detail: securityDetail,
+                    symbol: "lock.shield.fill",
+                    tint: model.securityAuditReport.needsAttention ? AppPalette.warning : AppPalette.success
                 )
             }
 
-            if let warning = model.settings?.codexRuntime?.warning, !warning.isEmpty {
-                Label(warning, systemImage: "exclamationmark.triangle.fill")
+            lifecycleCard
+            recentEventsCard
+        }
+    }
+
+    private var lifecycleCard: some View {
+        HStack(spacing: 18) {
+            Image(systemName: "desktopcomputer.and.macbook")
+                .font(.system(size: 25, weight: .semibold))
+                .foregroundStyle(AppPalette.accent)
+                .frame(width: 52, height: 52)
+                .background(
+                    AppPalette.accent.opacity(0.12),
+                    in: RoundedRectangle(cornerRadius: 15, style: .continuous)
+                )
+            VStack(alignment: .leading, spacing: 4) {
+                Text("本机生命周期")
+                    .font(.title3.weight(.semibold))
+                Text("Desktop 管理 Core 进程、可信版本、睡眠唤醒检查与故障记录。")
                     .font(.callout)
-                    .foregroundStyle(AppPalette.warning)
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(AppPalette.warning.opacity(0.09), in: RoundedRectangle(cornerRadius: 12))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("诊断与修复") { navigation.show(.diagnostics) }
+            Button("重启 Core") { Task { await model.restartService() } }
+                .disabled(model.isRefreshing)
+            Button("停止 Core", role: .destructive) { Task { await model.stopService() } }
+                .disabled(model.isRefreshing)
+        }
+        .cardStyle()
+    }
+
+    private var recentEventsCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label("最近本机事件", systemImage: "clock.arrow.circlepath")
+                    .font(.title3.weight(.semibold))
+                Spacer()
+                Button("查看全部") { navigation.show(.diagnostics) }
             }
 
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Text("Provider 状态")
-                        .font(.title3.weight(.semibold))
-                    Spacer()
-                    Text("\(model.enabledProviders.count)/\(model.providers.count)")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(model.providers.prefix(5)) { provider in
-                    HStack(spacing: 12) {
-                        Circle()
-                            .fill(provider.disabled ? Color.secondary.opacity(0.4) : AppPalette.success)
-                            .frame(width: 7, height: 7)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(provider.name).font(.callout.weight(.medium))
-                            Text(provider.displayModel).font(.caption).foregroundStyle(.secondary)
+            if eventStore.events.isEmpty {
+                Text("暂无运行事件。Desktop 不记录账号、Prompt 或响应内容。")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(eventStore.events.prefix(4).enumerated()), id: \.element.id) { index, event in
+                        HStack(spacing: 12) {
+                            Image(systemName: event.kind.symbol)
+                                .foregroundStyle(event.kind.isFailure ? AppPalette.warning : AppPalette.accent)
+                                .frame(width: 20)
+                            Text(event.kind.title)
+                                .font(.callout.weight(.medium))
+                            if let detail = event.detail {
+                                Text(detail)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Text(event.timestamp.formatted(date: .omitted, time: .shortened))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.tertiary)
                         }
-                        Spacer()
-                        Pill(text: provider.displayAuth, color: provider.disabled ? .secondary : AppPalette.accent)
-                        if provider.name == model.config?.defaultProvider {
-                            Pill(text: "默认", color: AppPalette.success)
-                        }
+                        .padding(.vertical, 8)
+                        if index < min(eventStore.events.count, 4) - 1 { Divider() }
                     }
-                    if provider.id != model.providers.prefix(5).last?.id { Divider() }
                 }
             }
-            .cardStyle()
         }
+        .cardStyle()
     }
 
     private var offlineContent: some View {
@@ -118,18 +155,18 @@ struct OverviewView: View {
             .foregroundStyle(model.connectionState == .unauthorized ? AppPalette.warning : .secondary)
             .frame(width: 72, height: 72)
             .background(.quaternary, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            Text(model.connectionState == .unauthorized ? "无法访问管理 API" : "OpenCodex 尚未运行")
+            Text(model.connectionState == .unauthorized ? "无法访问管理 API" : "OpenCodex Core 尚未运行")
                 .font(.title2.weight(.semibold))
             Text(
                 model.connectionState == .unauthorized
                     ? "客户端需要读取本机受保护的管理令牌。启动或重启一次服务通常可以修复。"
-                    : "启动本地服务后，就可以在这里管理 Provider 与运行设置。"
+                    : "启动本机 Core 后，即可从 Desktop 打开 OpenCodex 控制台。"
             )
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
             .frame(maxWidth: 440)
             HStack {
-                Button("启动服务") {
+                Button("启动 Core") {
                     Task { await model.startService() }
                 }
                 .buttonStyle(.borderedProminent)
@@ -140,5 +177,38 @@ struct OverviewView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 400)
         .cardStyle()
+    }
+
+    private var codexRuntimeValue: String {
+        if let version = model.settings?.codexRuntime?.version { return "v\(version)" }
+        if let version = model.codexRuntimeCandidates.first(where: \.isValid)?.version { return "v\(version)" }
+        return "待配置"
+    }
+
+    private var codexRuntimeDetail: String {
+        if let source = model.settings?.codexRuntime?.source { return source }
+        if model.codexRuntimeCandidates.contains(where: \.isValid) { return "Mac 已发现 · 等待 Core 绑定" }
+        return "打开诊断选择 Runtime"
+    }
+
+    private var uptimeValue: String {
+        guard let seconds = model.health?.uptime else { return "已连接" }
+        let totalMinutes = max(0, Int(seconds) / 60)
+        let days = totalMinutes / (24 * 60)
+        let hours = (totalMinutes % (24 * 60)) / 60
+        let minutes = totalMinutes % 60
+        if days > 0 { return "\(days) 天 \(hours) 小时" }
+        if hours > 0 { return "\(hours) 小时 \(minutes) 分" }
+        return "\(minutes) 分钟"
+    }
+
+    private var securityValue: String {
+        let items = model.securityAuditReport.items
+        guard !items.isEmpty else { return "检查中" }
+        return "\(items.filter { $0.state == .passed }.count)/\(items.count) 通过"
+    }
+
+    private var securityDetail: String {
+        model.securityAuditReport.needsAttention ? "发现需要处理的项目" : "回环监听与本机权限"
     }
 }
