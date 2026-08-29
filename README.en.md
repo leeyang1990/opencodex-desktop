@@ -64,7 +64,7 @@ Desktop is valuable because it handles macOS installation, updates, diagnostics,
   </a>
 </p>
 <p align="center">
-  <sub>Synthetic showcase of the local runtime center, Runtime validation, and security diagnostics; no real device or account data</sub>
+  <sub>Code-composed from the real OpenCodex Desktop 0.10.0 UI; only local ports, PIDs, timestamps, and capacity details are redacted</sub>
 </p>
 
 ## Compatibility

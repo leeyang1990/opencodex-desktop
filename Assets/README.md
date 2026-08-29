@@ -13,9 +13,12 @@ The build script generates all required `.icns` sizes from this source.
 
 Product screenshots used by the repository README live in `screenshots/`:
 
-- `native-control-center-v010.png` — privacy-safe synthetic showcase of the
-  native runtime center and diagnostics added in Desktop 0.10.0. It was
-  generated with OpenAI ImageGen and contains no device, account, or log data.
+- `native-control-center-v010.png` — code-composed from real Desktop 0.10.0
+  runtime and diagnostics screenshots. The composition keeps the app UI intact
+  while redacting local ports, PIDs, timestamps, and disk-capacity details.
+
+`scripts/make-readme-showcase.py` performs the privacy redaction and visual
+composition. Raw local captures are intentionally not committed.
 
 Older screenshots remain only as historical design references and are not used
 by the current README because Provider, account, and model management now lives

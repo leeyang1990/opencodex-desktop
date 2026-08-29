@@ -64,7 +64,7 @@ Desktop 的价值不在于重新实现一套控制台，而在于处理控制台
   </a>
 </p>
 <p align="center">
-  <sub>本机运行中心、Runtime 验证与安全诊断的合成示意图；不包含真实设备或账号数据</sub>
+  <sub>基于 OpenCodex Desktop 0.10.0 真实界面的代码合成图；仅遮盖本机端口、PID、时间与容量信息</sub>
 </p>
 
 ## 兼容性
