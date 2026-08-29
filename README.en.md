@@ -50,7 +50,7 @@ OpenCodex Desktop is a standalone, lightweight macOS client. It is not a fork of
 | OpenCodex Desktop | OpenCodex Console |
 | :--- | :--- |
 | Trusted Core install, lifecycle, and failed-update rollback | Provider, account, model, and routing administration |
-| Codex CLI discovery, validation, and local binding | Codex login and account pools |
+| Discover, validate, and select a local Codex CLI for Core | Codex login and account pools |
 | Integrity, port, security, and sanitized diagnostics | Logs, usage, integrations, and business runtime settings |
 | Menu bar, notifications, login items, Dock, and Shortcuts | Core-provided cross-platform administration |
 

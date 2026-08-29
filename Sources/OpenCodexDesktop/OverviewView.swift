@@ -181,16 +181,16 @@ struct OverviewView: View {
 
     private var codexRuntimeValue: String {
         if let version = model.settings?.codexRuntime?.version { return "v\(version)" }
-        if model.codexRuntimeCandidates.contains(where: \.isValid) { return "未绑定" }
+        if model.codexRuntimeCandidates.contains(where: \.isValid) { return "未指定" }
         return model.hasScannedCodexRuntimes ? "未发现" : "扫描中"
     }
 
     private var codexRuntimeDetail: String {
         if model.settings?.codexRuntime?.version != nil {
-            return "Core 已绑定 · \(model.settings?.codexRuntime?.source ?? "自动发现")"
+            return "Core 正在使用 · \(model.settings?.codexRuntime?.source ?? "自动发现")"
         }
         if let version = model.codexRuntimeCandidates.first(where: \.isValid)?.version {
-            return "已发现 v\(version) · 建议绑定"
+            return "已发现 v\(version) · 建议选择"
         }
         return model.hasScannedCodexRuntimes ? "请安装或重新扫描" : "正在扫描本机 CLI"
     }

@@ -395,7 +395,7 @@ struct DiagnosticsView: View {
         }
         if let recommendedRuntime {
             return model.isOnline
-                ? "Core 当前未绑定 Codex CLI"
+                ? "Core 尚未指定 Codex CLI"
                 : "已找到 Codex \(recommendedRuntime.version ?? "")"
         }
         return model.isScanningCodexRuntimes ? "正在查找 Codex CLI" : "未找到 Codex CLI"
@@ -417,11 +417,15 @@ struct DiagnosticsView: View {
     }
 
     private var runtimePrimaryActionTitle: String {
-        model.isOnline || coreManager.ownsRunningProcess ? "使用推荐版本并重启" : "设为推荐版本"
+        model.isOnline || coreManager.ownsRunningProcess
+            ? "让 Core 使用推荐版本并重启"
+            : "让 Core 下次使用推荐版本"
     }
 
     private var candidateActionTitle: String {
-        model.isOnline || coreManager.ownsRunningProcess ? "设为当前并重启" : "选择"
+        model.isOnline || coreManager.ownsRunningProcess
+            ? "让 Core 使用此版本并重启"
+            : "让 Core 使用此版本"
     }
 
     private func runtimeSourceTitle(_ source: String?) -> String {
