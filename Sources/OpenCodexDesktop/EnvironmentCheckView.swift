@@ -8,7 +8,7 @@ struct FirstLaunchEnvironmentCheckView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Label("启动环境检查", systemImage: "checkmark.shield.fill")
                     .font(.title2.weight(.semibold))
-                Text("确认 OpenCodex Desktop 可以安全访问本机运行目录，并正确找到 Core 与 Codex CLI。")
+                Text("检查本机权限、内核与 Codex CLI。")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -16,11 +16,11 @@ struct FirstLaunchEnvironmentCheckView: View {
             EnvironmentCheckList(report: model.environmentReport)
 
             if model.environmentReport.needsAttention {
-                Label("有项目需要处理。你可以稍后在“诊断与修复”中重新检查。", systemImage: "exclamationmark.triangle.fill")
+                Label("部分项目需处理，可在“诊断”中重试。", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(AppPalette.warning)
             } else {
-                Label("环境检查通过，可以正常使用。", systemImage: "checkmark.circle.fill")
+                Label("检查通过", systemImage: "checkmark.circle.fill")
                     .font(.caption)
                     .foregroundStyle(AppPalette.success)
             }
@@ -34,6 +34,7 @@ struct FirstLaunchEnvironmentCheckView: View {
         }
         .padding(24)
         .frame(width: 620)
+        .background(.regularMaterial)
     }
 }
 

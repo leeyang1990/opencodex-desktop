@@ -6,28 +6,40 @@ struct DiagnosticsView: View {
     @ObservedObject private var eventStore = DesktopEventStore.shared
     @StateObject private var loginItem = LoginItemManager()
     @State private var showsAdvancedRuntimeOptions = false
+    @State private var host = AppConstants.Connection.defaultHost
+    @State private var port = AppConstants.Connection.defaultPort
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 PageHeader(
-                    title: "诊断与修复",
-                    subtitle: "即使 Core 无法启动，也能检查本机安装、端口、运行时与系统环境"
+                    title: "诊断",
+                    subtitle: "检查与修复运行问题"
                 )
+                .padding(.bottom, 2)
 
-                summaryCard
-                checksCard
+                repairCard
+                if model.environmentReport.needsAttention {
+                    summaryCard
+                    checksCard
+                }
                 runtimeCard
+                connectionCard
                 securityAuditCard
                 eventHistoryCard
-                repairCard
-                privacyCard
+                privacyNote
             }
-            .padding(28)
+            .padding(.horizontal, 24)
+            .padding(.top, 18)
+            .padding(.bottom, 32)
             .frame(maxWidth: 900, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .top)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
-        .onAppear { model.runEnvironmentCheck() }
+        .onAppear {
+            host = model.connectionHost
+            port = model.connectionPort
+            model.runEnvironmentCheck()
+        }
         .toolbar {
             ToolbarItem {
                 Button {
@@ -51,9 +63,9 @@ struct DiagnosticsView: View {
             .font(.system(size: 30, weight: .semibold))
             .foregroundStyle(model.environmentReport.needsAttention ? AppPalette.warning : AppPalette.success)
             .frame(width: 58, height: 58)
-            .background(
-                (model.environmentReport.needsAttention ? AppPalette.warning : AppPalette.success).opacity(0.12),
-                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .glassControl(
+                tint: (model.environmentReport.needsAttention ? AppPalette.warning : AppPalette.success)
+                    .opacity(0.18)
             )
             VStack(alignment: .leading, spacing: 5) {
                 Text(summaryTitle)
@@ -88,23 +100,23 @@ struct DiagnosticsView: View {
             Label("安全操作", systemImage: "wrench.and.screwdriver")
                 .font(.title3.weight(.semibold))
 
-            Text("这些操作只影响 Desktop 自己安装的 Core 和本机启动状态，不会修改 Provider、账号、模型或 Codex Base URL。")
+            Text("仅影响本机内核，不更改账号、渠道与路由。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 10) {
                 if model.coreIntegrityInspection.needsRepair {
                     Button("修复 Core 安装") { Task { await model.installCore() } }
-                        .buttonStyle(.borderedProminent)
+                        .shellButtonStyle(prominent: true)
                 } else if !model.coreIntegrityInspection.isValid {
                     Button("安装 Core") { Task { await model.installCore() } }
-                        .buttonStyle(.borderedProminent)
+                        .shellButtonStyle(prominent: true)
                 } else if model.isOnline {
                     Button("重启 Core") { Task { await model.restartService() } }
-                        .buttonStyle(.borderedProminent)
+                        .shellButtonStyle(prominent: true)
                 } else {
                     Button("启动 Core") { Task { await model.startService() } }
-                        .buttonStyle(.borderedProminent)
+                        .shellButtonStyle(prominent: true)
                         .disabled(portIsOccupied)
                 }
 
@@ -152,7 +164,7 @@ struct DiagnosticsView: View {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(runtimeStatusColor)
                     .frame(width: 38, height: 38)
-                    .background(runtimeStatusColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 11))
+                    .glassControl(tint: runtimeStatusColor.opacity(0.18))
                 VStack(alignment: .leading, spacing: 4) {
                     Text(runtimeStatusTitle)
                         .font(.callout.weight(.semibold))
@@ -165,13 +177,13 @@ struct DiagnosticsView: View {
                     Button(runtimePrimaryActionTitle) {
                         Task { await model.useCodexRuntime(recommendedRuntime) }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .shellButtonStyle(prominent: true)
                     .disabled(model.isRefreshing || model.isScanningCodexRuntimes)
                 }
             }
 
             Label {
-                Text("这里选择的是 Core 调用的 Codex CLI，用于 Codex 登录、模型目录与功能兼容性识别；不是 OpenCodex Core 版本，也不会切换账号。")
+                Text("选择内核调用的 CLI，不更改系统命令或账号。")
             } icon: {
                 Image(systemName: "info.circle")
             }
@@ -196,7 +208,7 @@ struct DiagnosticsView: View {
                     }
 
                     HStack(alignment: .firstTextBaseline) {
-                        Text("切换版本会重启 Core，但不会修改账号、Provider、模型或路由配置。")
+                        Text("切换会重启内核，保留配置。")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Spacer()
@@ -209,7 +221,7 @@ struct DiagnosticsView: View {
                 .padding(.top, 8)
             } label: {
                 HStack {
-                    Label("高级：选择其他 Codex CLI", systemImage: "slider.horizontal.3")
+                    Label("更换 CLI", systemImage: "slider.horizontal.3")
                     Spacer()
                     Text("\(model.codexRuntimeCandidates.filter(\.isValid).count) 个可用版本")
                         .font(.caption)
@@ -266,7 +278,7 @@ struct DiagnosticsView: View {
                 }
             }
 
-            Text("只记录进程、版本、睡眠唤醒和检查结果；不记录账号、请求、Prompt 或响应内容。")
+            Text("仅记录运行状态，不含账号或请求内容。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -438,16 +450,77 @@ struct DiagnosticsView: View {
         }
     }
 
-    private var privacyCard: some View {
+    /// Connection and token surface. It lives here, next to the other low-level state, instead of
+    /// occupying the main settings page.
+    private var connectionCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("连接", systemImage: "network")
+                .font(.title3.weight(.semibold))
+
+            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 10) {
+                GridRow {
+                    Text("主机").foregroundStyle(.secondary)
+                    TextField("127.0.0.1", text: $host)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 200, alignment: .leading)
+                }
+                GridRow {
+                    Text("端口").foregroundStyle(.secondary)
+                    TextField("10100", value: $port, format: .number.grouping(.never))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 120, alignment: .leading)
+                }
+            }
+
+            HStack(spacing: 10) {
+                StatusDot(state: model.connectionState)
+                Text(model.connectionState.label)
+                    .font(.callout.weight(.medium))
+                Text("http://\(host):\(port)")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("应用并重连") {
+                    model.connectionHost = host
+                    model.connectionPort = port
+                    Task { await model.saveConnection() }
+                }
+            }
+
+            Divider()
+
+            HStack(spacing: 12) {
+                Image(systemName: model.tokenAvailable ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                    .foregroundStyle(model.tokenAvailable ? AppPalette.success : AppPalette.warning)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(model.tokenAvailable ? "管理令牌可用" : "未找到管理令牌")
+                        .font(.callout.weight(.medium))
+                    Text(model.tokenPath)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer()
+                Button("在 Finder 中显示") { model.openConfigFolder() }
+            }
+
+            Text("客户端只在本机回环请求中使用令牌，不会显示、记录或另存其内容。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .cardStyle()
+    }
+
+    private var privacyNote: some View {
         Label {
-            Text("诊断包不会包含 API Key、管理令牌内容、账号标识、请求正文或 Core 原始日志。")
+            Text("诊断包不会包含 API Key、管理令牌内容、账号标识、请求正文或内核原始日志。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         } icon: {
             Image(systemName: "lock.shield.fill")
                 .foregroundStyle(AppPalette.accent)
         }
-        .cardStyle()
     }
 
     private var passedCount: Int {

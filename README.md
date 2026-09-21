@@ -5,8 +5,8 @@
 <div align="center">
   <img src="Assets/AppIcon-Source.png" width="120" alt="OpenCodex Desktop 图标">
   <h1>OpenCodex Desktop</h1>
-  <p><strong>OpenCodex 的原生 macOS 启动、诊断与更新工具</strong></p>
-  <p>管理本机 Core 与 Codex CLI；Provider、账号、模型和路由继续交给 OpenCodex 控制台。</p>
+  <p><strong>OpenCodex 的日常 macOS 控制中心</strong></p>
+  <p>常用配置在桌面快速完成，完整高级设置精准进入 OpenCodex 控制台。</p>
   <p>
     <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111827?style=flat-square&logo=apple&logoColor=white">
     <img alt="Apple Silicon" src="https://img.shields.io/badge/Apple_Silicon-arm64-2563EB?style=flat-square&logo=apple&logoColor=white">
@@ -21,33 +21,48 @@
 
 ---
 
-OpenCodex Desktop 是独立开发的社区 macOS 客户端，不是 OpenCodex 的源码分支，也不会在 App 中内置上游源码、账号数据或 Provider 配置。它只处理 Web 页面无法独立完成的本机能力。
+OpenCodex Desktop 是独立开发的社区 macOS 客户端，不是 OpenCodex 的源码分支，也不会在 App 中内置上游源码、账号数据或 Provider 配置。它既处理 Core 生命周期、诊断和 ChatGPT 生效等本机能力，也把账号、渠道和子代理中最常用的操作做成更短的原生流程。复杂参数仍由 OpenCodex 控制台完整管理。
 
 ## 界面预览
 
 <p align="center">
-  <a href="Assets/screenshots/native-control-center-v010.png">
-    <img src="Assets/screenshots/native-control-center-v010.png" width="100%" alt="OpenCodex Desktop 真实界面展示">
-  </a>
+  <img src="Assets/screenshots/native-shell-home.png" width="72%" alt="早期版本的原生界面预览">
 </p>
-<p align="center"><sub>基于真实 App 界面生成；已遮盖本机端口、PID、时间与容量信息。</sub></p>
+<p align="center"><sub>早期版本的真实截图，布局以最新版为准。</sub></p>
 
 ## 核心能力
 
-- **Core 生命周期** — 安装、启动、停止和重启兼容 Core，并保留已验证版本用于失败回滚。
-- **为 Core 选择 Codex CLI** — 发现并验证 NVM、Homebrew、Codex.app、ChatGPT.app 与 PATH 中的 CLI；选择只对 Core 生效，不修改系统命令或切换账号。
-- **诊断与修复** — 检查安装完整性、端口、磁盘、令牌权限、监听范围、代码签名和登录项，即使 Core 离线也可使用。
-- **macOS 原生集成** — 菜单栏、Dock 显示策略、登录项、通知、快捷指令和安全 URL Scheme。
-- **安全更新** — 检查 GitHub Release，下载精确匹配的 Apple Silicon DMG，并在打开前验证 SHA-256。
-- **OpenCodex 控制台入口** — 在独立 Tab 中使用 Core 提供的 Provider、账号、模型、路由、日志和用量管理。
+- **多账号快捷操作** — 在浏览器中添加 Codex 账号，查看额度，切换当前账号或暂停使用；凭证不经过客户端。
+- **简化调度** — 直接选择按额度、轮询或用尽再换；阈值、优先级和冷却等细节留在控制台。
+- **API 渠道快捷配置** — 添加、启停、设为默认并测试连通性；支持协议、密钥、自动/手动模型与内网地址。“高级配置”打开 WebUI 供应方页面。
+- **子代理偏好** — 选择最多 5 个可用模型并调整偏好顺序；回退链和检查间隔留在控制台。
+- **使用记录** — 概览页展示最近 7 天请求量、Token 与用量图表，不读取请求正文。
+- **本机代理与 ChatGPT** — 启停代理、复制 Base URL、一键重启 ChatGPT；主动停止时还原路由，再重启正在运行的 ChatGPT。
+- **安全更新** — 检查本仓库 Release，下载精确匹配的 Apple Silicon DMG，并在打开前验证 SHA-256。
+- **在线内核版本** — 设置页自动获取上游稳定版本，支持手动刷新与离线缓存；自选版本按具体版本和摘要锁定，不随 `latest` 自动升级。未完整回归的新版本标为实验性，仅允许 Core 2.x 和已适配的 Bun。
+
+## 界面
+
+顶部导航包含概览、账号、渠道、子代理和设置，均在主窗口内切换：
+
+| 页面 | 内容 |
+| :--- | :--- |
+| 概览 | 代理状态、Base URL、ChatGPT 重启、最近 7 天用量图表 |
+| 账号 | 添加、查看、切换和暂停账号，选择常用调度策略 |
+| 渠道 | 添加、启停、设为默认、连通测试和添加 Key |
+| 子代理 | 子代理模型选择与偏好排序 |
+| 设置 | 客户端偏好、启动开关、内核版本和更新；提供诊断与日志入口 |
 
 ## 与 OpenCodex 控制台的分工
 
-| OpenCodex Desktop | OpenCodex 控制台 |
+| OpenCodex Desktop（桌面壳） | OpenCodex 控制台（网页，一键打开） |
 | :--- | :--- |
-| Core 安装、启停、更新与回滚 | Provider、账号、模型与路由 |
-| 本机 Codex CLI 发现、验证与选择 | Codex 登录与账号池 |
-| 本机诊断、安全审计和 macOS 集成 | 日志、用量和业务配置 |
+| 添加/切换/暂停账号，选择常用调度策略 | 账号优先级、冷却恢复、移除、自动切换与失败阈值 |
+| 添加/启停/测试渠道，配置 Key 与模型列表，设置默认渠道 | 完整密钥池、渠道删除、自定义模型与路由 |
+| 子代理模型选择与排序、聚合用量图表 | 回退链、检查间隔、详细用量、日志、集成与实验特性 |
+| Core 生命周期、诊断、更新、ChatGPT 重启 | — |
+
+两边读写的是同一份 Core 配置，没有平行副本。窗口右上角的“控制台”打开完整设置；添加渠道窗口中的“高级配置”直达供应方页面。均在默认浏览器中打开，不自动带入未保存的表单。
 
 ## 下载与安装
 
@@ -58,7 +73,13 @@ OpenCodex Desktop 是独立开发的社区 macOS 客户端，不是 OpenCodex �
 ## 行为边界
 
 - Core 启动后与 Desktop 窗口解耦；退出 Desktop 不会停止正在运行的 Core。
-- 停用代理时，请在 Desktop 中明确点击“停止 Core”。
+- 默认不随 App 启动 Core；“随 App 自动启动 Core”和“开机启动 App”是两个独立开关。
+- 默认在退出客户端前还原 Codex 原生路由并重启 ChatGPT，避免 ChatGPT 继续指向即将消失的代理；该行为可在“设置 › 客户端”中关闭。
+- 还原与重新指向都通过 Core 自带的恢复流程完成，Desktop 不解析、不直接改写 `~/.codex/config.toml`；下次启动客户端时会重新指向本机代理，并在需要时提示重启 ChatGPT。
+- Desktop 只原生写入经过筛选的高频配置，全部走 Core 自己的接口；细粒度账号调度、完整渠道与子代理参数、自定义模型、路由、用量和日志仍在控制台管理。
+- 渠道 API Key 仅存在于本次会话内存，写入内核后立即清除，不写入偏好设置、事件记录或日志；客户端只读取内核返回的掩码形式。Codex 登录由内核打开浏览器完成，凭证完全不经过客户端。
+- 内嵌网页已移除：控制台由本机 Core 提供，客户端只在默认浏览器中打开它。
+- 停用代理时，请在 Desktop 中明确点击“停止”：停止 Core、还原路由，再重启已打开的 ChatGPT。这不是崩溃自动恢复功能。
 - 为 Core 选择 Codex CLI 只会向 Core 进程指定可执行文件，不修改全局 `PATH`、终端命令或 Codex 账号。
 - Provider、账号和模型配置存放在独立的 OpenCodex 数据目录，更新或卸载 Core 不会删除它们。
 - Desktop 的管理请求仅连接本机回环地址。

@@ -49,8 +49,7 @@ extension AppModel {
 
     func restartService() async {
         errorMessage = nil
-        await stopService()
-        guard errorMessage == nil else { return }
+        guard await stopService(restartChatGPTAfterStop: false) else { return }
         await startService()
     }
 

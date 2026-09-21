@@ -1,10 +1,14 @@
 import SwiftUI
 
+enum CoreConsolePage: String {
+    case providers
+}
+
 @MainActor
 final class AppNavigation: ObservableObject {
     static let shared = AppNavigation()
 
-    @Published var selection: SidebarDestination = .overview
+    @Published var selection: SidebarDestination = .home
 
     private init() {}
 
@@ -26,9 +30,10 @@ enum DeepLinkPolicy {
             .lowercased()
 
         return switch route {
-        case "status", "overview": .overview
-        case "diagnostics", "repair": .diagnostics
-        case "console", "dashboard": .dashboard
+        case "status", "overview", "home": .home
+        case "accounts", "codex-auth": .accounts
+        case "channels", "providers": .channels
+        case "subagents": .subagents
         case "settings": .settings
         default: nil
         }

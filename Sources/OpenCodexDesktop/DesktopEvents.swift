@@ -14,6 +14,11 @@ enum DesktopEventKind: String, Codable, CaseIterable {
     case runtimeChanged
     case coreInstalled
     case coreRollback
+    case chatGPTRestarted
+    case codexRoutingRestored
+    case codexRoutingRestoreFailed
+    case codexAccountAdded
+    case channelChanged
 
     var title: String {
         switch self {
@@ -29,6 +34,11 @@ enum DesktopEventKind: String, Codable, CaseIterable {
         case .runtimeChanged: "Codex Runtime 已切换"
         case .coreInstalled: "Core 已安装"
         case .coreRollback: "Core 已回滚"
+        case .chatGPTRestarted: "ChatGPT 已重启"
+        case .codexRoutingRestored: "Codex 路由已还原"
+        case .codexRoutingRestoreFailed: "Codex 路由还原失败"
+        case .codexAccountAdded: "已添加 Codex 账号"
+        case .channelChanged: "API 渠道已变更"
         }
     }
 
@@ -36,17 +46,21 @@ enum DesktopEventKind: String, Codable, CaseIterable {
         switch self {
         case .appStarted, .coreStarted, .serviceRecovered: "play.circle.fill"
         case .appStopped, .coreStopped: "stop.circle.fill"
-        case .coreCrashed, .wakeCheckFailed: "exclamationmark.triangle.fill"
+        case .coreCrashed, .wakeCheckFailed, .codexRoutingRestoreFailed: "exclamationmark.triangle.fill"
         case .systemSleep: "moon.zzz.fill"
         case .systemWake: "sunrise.fill"
         case .runtimeChanged: "terminal.fill"
         case .coreInstalled: "shippingbox.fill"
         case .coreRollback: "arrow.uturn.backward.circle.fill"
+        case .chatGPTRestarted: "arrow.triangle.2.circlepath"
+        case .codexRoutingRestored: "arrow.uturn.backward.circle.fill"
+        case .codexAccountAdded: "person.badge.plus"
+        case .channelChanged: "server.rack"
         }
     }
 
     var isFailure: Bool {
-        self == .coreCrashed || self == .wakeCheckFailed
+        self == .coreCrashed || self == .wakeCheckFailed || self == .codexRoutingRestoreFailed
     }
 }
 

@@ -4,7 +4,7 @@ import Darwin
 import Foundation
 import ServiceManagement
 
-struct DownloadArtifact: Sendable, Equatable {
+struct DownloadArtifact: Codable, Sendable, Equatable {
     let url: URL
     let sha256: String
     let maximumBytes: Int64
@@ -21,7 +21,7 @@ struct BunArtifact: Sendable, Equatable {
     let archiveDirectory: String
 }
 
-struct CoreRelease: Sendable, Equatable {
+struct CoreRelease: Codable, Sendable, Equatable {
     let version: String
     let commit: String
     let package: DownloadArtifact
@@ -122,21 +122,25 @@ enum CoreReleaseCatalog {
 
     static var all: [CoreRelease] { [build] + userSelectable }
 
-    static func resolve(mode: CoreVersionMode, customVersion: String?) -> CoreRelease {
+    static func resolve(mode: CoreVersionMode, customVersion: String?, releases: [CoreRelease] = userSelectable)
+        -> CoreRelease
+    {
         guard mode == .custom,
             let customVersion,
-            let release = userSelectable.first(where: { $0.version == customVersion })
+            let release = releases.first(where: { $0.version == customVersion })
         else { return build }
         return release
     }
 
-    static func normalizedSelection(modeRawValue: String?, customVersion: String?) -> (
+    static func normalizedSelection(
+        modeRawValue: String?, customVersion: String?, releases: [CoreRelease] = userSelectable
+    ) -> (
         mode: CoreVersionMode,
         customVersion: String?
     ) {
         guard modeRawValue == CoreVersionMode.custom.rawValue,
             let customVersion,
-            userSelectable.contains(where: { $0.version == customVersion })
+            releases.contains(where: { $0.version == customVersion })
         else { return (.build, nil) }
         return (.custom, customVersion)
     }
@@ -384,6 +388,9 @@ enum CoreManagerError: LocalizedError {
     case untrustedVersion(String)
     case launchFailed(String)
     case stoppedUnexpectedly(String)
+    case restoreFailed(String)
+    case restoreTimedOut
+    case requiresTerminationConfirmation
 
     var errorDescription: String? {
         switch self {
@@ -409,7 +416,232 @@ enum CoreManagerError: LocalizedError {
             message.isEmpty ? "OpenCodex 内核启动失败" : message
         case let .stoppedUnexpectedly(message):
             message.isEmpty ? "OpenCodex 内核意外停止" : message
+        case let .restoreFailed(message):
+            message.isEmpty ? "还原 Codex 路由失败，请查看内核日志" : message
+        case .restoreTimedOut:
+            "还原 Codex 路由超时，Codex 配置可能仍指向代理"
+        case .requiresTerminationConfirmation:
+            CoreManagerError.restoreNotConfirmedMessage
         }
+    }
+
+    nonisolated fileprivate static let restoreNotConfirmedMessage =
+        "内核未确认已还原 Codex 配置，请重试“还原 Codex 路由”后再退出，或查看内核日志。"
+}
+
+/// A bounded, non-blocking invocation of the managed Core CLI.
+///
+/// The launcher never edits `~/.codex/config.toml` itself: base-URL injection and its
+/// reversal are owned by the Core, which records ownership in its own journal. This runner
+/// only executes the documented `ocx restore` / `ocx restore back` commands, so the
+/// restore path stays identical to the one a user would run by hand.
+struct ManagedCLI: Sendable {
+    let executable: URL
+    let entry: URL
+    let arguments: [String]
+    let currentDirectory: URL
+    let environment: [String: String]
+    let timeout: Duration
+
+    /// Environment for a one-shot Core CLI invocation.
+    ///
+    /// Mirrors the process environment of a started Core closely enough for the CLI to reach
+    /// the same `CODEX_HOME` and management token file. Credential variables are dropped rather
+    /// than forwarded: the CLI reads the token from disk, so nothing secret needs to cross.
+    static func environment(
+        dataDirectory: URL,
+        runtimeExecutable: URL,
+        base: [String: String],
+        codexHome: URL?
+    ) -> [String: String] {
+        var environment = base
+        for key in ["OPENCODEX_ADMIN_AUTH_TOKEN", "OCX_ADMIN_TOKEN"] {
+            environment.removeValue(forKey: key)
+        }
+        environment["OPENCODEX_HOME"] = dataDirectory.path
+        environment["OPENCODEX_AGENT_DRIVEN"] = "1"
+        environment["OPENCODEX_BUN_PATH"] = runtimeExecutable.path
+        environment["OCX_BUN_RUNTIME_SOURCE"] = "bundled"
+        environment["OCX_BUN_RUNTIME_PATH"] = runtimeExecutable.path
+        environment["NO_COLOR"] = "1"
+        if let codexHome { environment["CODEX_HOME"] = codexHome.path }
+        return environment
+    }
+}
+
+struct ManagedCLIResult: Sendable, Equatable {
+    /// Whether an exit status was observed (a process killed by its deadline still has one).
+    let terminated: Bool
+    /// Whether the deadline fired and the command had to be signalled.
+    let timedOut: Bool
+    let status: Int32
+    let output: String
+
+    static func launchFailure(_ message: String) -> ManagedCLIResult {
+        ManagedCLIResult(terminated: false, timedOut: false, status: -1, output: message)
+    }
+
+    var succeeded: Bool { terminated && !timedOut && status == 0 }
+}
+
+enum ManagedCLIRunner {
+    /// Runs a bounded command and returns its combined output.
+    ///
+    /// Event-driven rather than polled: the exit status is captured from the process termination
+    /// handler and one deadline covers both reading and exiting. A hung CLI is signalled instead of
+    /// blocking the caller, which matters because the quit path waits on this command before the
+    /// launcher is allowed to close.
+    static func run(_ cli: ManagedCLI) async -> ManagedCLIResult {
+        let process = Process()
+        let pipe = Pipe()
+        let reader = pipe.fileHandleForReading
+        process.executableURL = cli.executable
+        process.arguments = [cli.entry.path] + cli.arguments
+        process.currentDirectoryURL = cli.currentDirectory
+        process.environment = cli.environment
+        process.standardOutput = pipe
+        process.standardError = pipe
+        process.standardInput = FileHandle.nullDevice
+
+        let state = RunnerState()
+        process.terminationHandler = { finished in
+            state.finish(with: finished.terminationStatus)
+        }
+        do {
+            try process.run()
+        } catch {
+            try? reader.close()
+            return .launchFailure(error.localizedDescription)
+        }
+
+        let handle = reader
+        // The reader owns one serial queue and blocks in `read` until the child closes the pipe,
+        // so the deadline needs a queue of its own: sharing it would park the timeout behind a
+        // hung command and the budget would never fire.
+        let readerQueue = DispatchQueue(label: "app.opencodex.desktop.core-cli.reader")
+        let deadlineQueue = DispatchQueue(label: "app.opencodex.desktop.core-cli.deadline")
+        readerQueue.async {
+            while true {
+                let chunk = (try? handle.read(upToCount: 4_096)) ?? Data()
+                if chunk.isEmpty { break }
+                state.append(chunk)
+            }
+            state.markPipeClosed()
+            if state.isFinished { try? handle.close() }
+        }
+
+        let timer = DispatchSource.makeTimerSource(queue: deadlineQueue)
+        timer.schedule(deadline: .now() + cli.timeout.dispatchInterval)
+        timer.setEventHandler {
+            guard !state.isFinished else { return }
+            state.markTimedOut()
+            process.terminate()
+            deadlineQueue.asyncAfter(deadline: .now() + AppConstants.Service.forceKillTimeout.dispatchInterval) {
+                guard !state.isFinished, process.isRunning else { return }
+                Darwin.kill(process.processIdentifier, SIGKILL)
+            }
+        }
+        timer.resume()
+
+        let status = await withCheckedContinuation { (continuation: CheckedContinuation<Int32?, Never>) in
+            state.install(continuation)
+        }
+        timer.cancel()
+        try? handle.close()
+        return ManagedCLIResult(
+            terminated: status != nil,
+            timedOut: state.timedOut,
+            status: status ?? -1,
+            output: String(decoding: state.output, as: UTF8.self)
+        )
+    }
+
+    /// Mutable state shared between the reader queue and the termination handler.
+    ///
+    /// The lock is what makes exactly one of them resume the waiting task, and it is only ever held
+    /// for a handful of instructions: the reader never touches it while blocked on `read`.
+    private final class RunnerState: @unchecked Sendable {
+        private let lock = NSLock()
+        private var continuation: CheckedContinuation<Int32?, Never>?
+        private var exitStatus: Int32?
+        private var buffer = Data()
+        private var pipeClosed = false
+        private var didTimeOut = false
+
+        var output: Data {
+            lock.lock()
+            defer { lock.unlock() }
+            return buffer
+        }
+
+        var timedOut: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return didTimeOut
+        }
+
+        func markTimedOut() {
+            lock.lock()
+            didTimeOut = true
+            lock.unlock()
+        }
+
+        var isFinished: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return exitStatus != nil
+        }
+
+        func append(_ chunk: Data) {
+            lock.lock()
+            defer { lock.unlock() }
+            guard buffer.count < Self.maximumBytes else { return }
+            buffer.append(chunk)
+        }
+
+        func install(_ continuation: CheckedContinuation<Int32?, Never>) {
+            lock.lock()
+            guard let status = exitStatus else {
+                self.continuation = continuation
+                lock.unlock()
+                return
+            }
+            lock.unlock()
+            continuation.resume(returning: status)
+        }
+
+        /// Records the exit status and reports whether the reader is still holding the wait open.
+        @discardableResult
+        func finish(with status: Int32) -> Bool {
+            lock.lock()
+            exitStatus = status
+            let pending = continuation
+            continuation = nil
+            let readerDone = pipeClosed
+            lock.unlock()
+            // The exit status is authoritative; a pipe still held open by a grandchild must not
+            // delay the result, so the wait resumes as soon as the process is gone.
+            pending?.resume(returning: status)
+            return readerDone
+        }
+
+        func markPipeClosed() {
+            lock.lock()
+            pipeClosed = true
+            lock.unlock()
+        }
+
+        private static let maximumBytes = 64 * 1_024
+    }
+}
+
+extension Duration {
+    /// `DispatchTime` needs whole nanoseconds; sub-millisecond budgets round up to one tick.
+    var dispatchInterval: DispatchTimeInterval {
+        let components = self.components
+        let nanoseconds =
+            components.attoseconds / 1_000_000_000 + components.seconds * 1_000_000_000
+        return .nanoseconds(Int(max(nanoseconds, 1)))
     }
 }
 
@@ -681,7 +913,15 @@ final class CoreManager: ObservableObject {
     @Published private(set) var preferredCodexRuntimePath: String?
 
     let buildRelease = CoreReleaseCatalog.build
-    let userSelectableReleases = CoreReleaseCatalog.userSelectable
+    @Published private(set) var userSelectableReleases = CoreReleaseCatalog.userSelectable
+    @Published private(set) var onlineCatalog: OnlineCoreCatalog?
+    @Published private(set) var isRefreshingVersions = false
+    @Published private(set) var isPreparingVersion = false
+    @Published private(set) var versionCatalogError: String?
+    private let versionClient = OnlineCoreCatalogClient()
+    private static let onlineCatalogKey = "onlineCoreCatalog.v1"
+    private static let preparedReleasesKey = "preparedCoreReleases.v1"
+    private var trustedReleases: [CoreRelease] { [buildRelease] + userSelectableReleases }
     private let installer = CoreInstaller()
     private let defaults: UserDefaults
     private var process: Process?
@@ -689,7 +929,7 @@ final class CoreManager: ObservableObject {
     private var stopRequested = false
 
     var targetRelease: CoreRelease {
-        CoreReleaseCatalog.resolve(mode: versionMode, customVersion: customVersion)
+        CoreReleaseCatalog.resolve(mode: versionMode, customVersion: customVersion, releases: userSelectableReleases)
     }
 
     var targetIsBuildRelease: Bool { targetRelease.version == buildRelease.version }
@@ -697,7 +937,7 @@ final class CoreManager: ObservableObject {
     var installedTrustedReleases: [CoreRelease] {
         let manifests = Self.discoverInstalledCores().filter(Self.isValidInstallation)
         return manifests.compactMap { manifest in
-            CoreReleaseCatalog.all.first {
+            trustedReleases.first {
                 Self.isCompatibleManifest(manifest, with: $0)
             }
         }
@@ -705,7 +945,7 @@ final class CoreManager: ObservableObject {
 
     var lastKnownGoodRelease: CoreRelease? {
         guard let version = defaults.string(forKey: Self.lastKnownGoodVersionDefaultsKey),
-            let release = CoreReleaseCatalog.all.first(where: { $0.version == version }),
+            let release = trustedReleases.first(where: { $0.version == version }),
             installedTrustedReleases.contains(release)
         else { return nil }
         return release
@@ -713,7 +953,7 @@ final class CoreManager: ObservableObject {
 
     var rollbackRelease: CoreRelease? {
         if let version = defaults.string(forKey: Self.previousKnownGoodVersionDefaultsKey),
-            let release = CoreReleaseCatalog.all.first(where: { $0.version == version }),
+            let release = trustedReleases.first(where: { $0.version == version }),
             release.version != targetRelease.version,
             installedTrustedReleases.contains(release)
         {
@@ -724,9 +964,19 @@ final class CoreManager: ObservableObject {
 
     private init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        let prepared =
+            defaults.data(forKey: Self.preparedReleasesKey)
+            .flatMap { try? JSONDecoder().decode([CoreRelease].self, from: $0) } ?? []
+        var releases = CoreReleaseCatalog.userSelectable
+        for release in prepared where OnlineCoreCatalog.validatePrepared(release) {
+            if !releases.contains(where: { $0.version == release.version }) { releases.append(release) }
+        }
+        userSelectableReleases = releases
+        onlineCatalog = defaults.data(forKey: Self.onlineCatalogKey)
+            .flatMap { try? JSONDecoder().decode(OnlineCoreCatalog.self, from: $0) }
         let selection = CoreReleaseCatalog.normalizedSelection(
             modeRawValue: defaults.string(forKey: Self.versionModeDefaultsKey),
-            customVersion: defaults.string(forKey: Self.customVersionDefaultsKey)
+            customVersion: defaults.string(forKey: Self.customVersionDefaultsKey), releases: releases
         )
         versionMode = selection.mode
         customVersion = selection.customVersion
@@ -734,6 +984,36 @@ final class CoreManager: ObservableObject {
             defaults.string(forKey: CodexRuntimePreference.defaultsKey)
         )
         refreshInstallation()
+    }
+
+    func refreshAvailableVersions() async {
+        guard !isRefreshingVersions else { return }
+        isRefreshingVersions = true
+        versionCatalogError = nil
+        defer { isRefreshingVersions = false }
+        do {
+            let catalog = try await versionClient.fetch()
+            onlineCatalog = catalog
+            defaults.set(try JSONEncoder().encode(catalog), forKey: Self.onlineCatalogKey)
+        } catch is CancellationError {
+            // A dismissed page must not replace a usable cached list with an error.
+        } catch {
+            versionCatalogError = "刷新失败，保留已有版本：\(error.localizedDescription)"
+        }
+    }
+
+    func prepareVersion(_ version: String) async throws -> CoreRelease {
+        if let existing = userSelectableReleases.first(where: { $0.version == version }) { return existing }
+        guard !isPreparingVersion, let candidate = onlineCatalog?.versions.first(where: { $0.version == version })
+        else {
+            throw CoreManagerError.untrustedVersion(version)
+        }
+        isPreparingVersion = true
+        defer { isPreparingVersion = false }
+        let release = try await versionClient.prepare(candidate)
+        userSelectableReleases.append(release)
+        defaults.set(try JSONEncoder().encode(userSelectableReleases), forKey: Self.preparedReleasesKey)
+        return release
     }
 
     func setPreferredCodexRuntimePath(_ path: String?) throws {
@@ -769,7 +1049,7 @@ final class CoreManager: ObservableObject {
     }
 
     func selectTrustedRelease(_ release: CoreRelease) throws {
-        guard CoreReleaseCatalog.all.contains(release) else {
+        guard trustedReleases.contains(release) else {
             throw CoreManagerError.untrustedVersion(release.version)
         }
         if release.version == buildRelease.version {
@@ -783,7 +1063,7 @@ final class CoreManager: ObservableObject {
         let previous = defaults.string(forKey: Self.lastKnownGoodVersionDefaultsKey)
         guard previous != version else { return }
         if let previous,
-            CoreReleaseCatalog.all.contains(where: { $0.version == previous })
+            trustedReleases.contains(where: { $0.version == previous })
         {
             defaults.set(previous, forKey: Self.previousKnownGoodVersionDefaultsKey)
         }
@@ -929,6 +1209,108 @@ final class CoreManager: ObservableObject {
 
     func openLog() {
         NSWorkspace.shared.activateFileViewerSelecting([CoreInstallationPaths.logFile])
+    }
+
+    /// Runs `ocx restore` against the running Core: Codex goes back to native OpenAI routing
+    /// while the proxy keeps serving. Ownership of the injected `openai_base_url` is decided by
+    /// the Core's own journal, so a user-owned value is never touched.
+    func restoreNativeCodexRouting() async throws {
+        let result = try await runRestoreCommand(arguments: ["restore", "--json"])
+        try Self.validateRestoreOutput(result)
+    }
+
+    /// Runs `ocx restore back`: re-points plain Codex at the running proxy without restarting it.
+    ///
+    /// `ocx restore` durably records Codex integration as OFF, so a restarted Core honours that
+    /// intent. Re-pointing is therefore the documented counterpart, not a launcher-side config write.
+    func reapplyNativeCodexRouting() async throws {
+        let result = try await runRestoreCommand(arguments: ["restore", "back"])
+        guard result.succeeded else {
+            throw CoreManagerError.restoreFailed(Self.cliFailureMessage(from: result))
+        }
+    }
+
+    private func runRestoreCommand(arguments: [String]) async throws -> ManagedCLIResult {
+        refreshInstallation()
+        guard installationState.isInstalled else { throw CoreManagerError.notInstalled }
+        let paths = CoreInstallationPaths.paths(for: targetRelease.version)
+        guard FileManager.default.isExecutableFile(atPath: paths.runtimeExecutable.path),
+            FileManager.default.fileExists(atPath: paths.cliEntry.path)
+        else { throw CoreManagerError.invalidInstallation }
+
+        var environment = ManagedCLI.environment(
+            dataDirectory: paths.dataDirectory,
+            runtimeExecutable: paths.runtimeExecutable,
+            base: CodexRuntimeEnvironment.prepared(
+                from: ProcessInfo.processInfo.environment,
+                dataDirectory: paths.dataDirectory
+            ),
+            codexHome: Self.resolvedCodexHome(from: ProcessInfo.processInfo.environment)
+        )
+        if let preferredCodexRuntimePath { environment["CODEX_CLI_PATH"] = preferredCodexRuntimePath }
+
+        return await ManagedCLIRunner.run(
+            ManagedCLI(
+                executable: paths.runtimeExecutable,
+                entry: paths.cliEntry,
+                arguments: arguments,
+                currentDirectory: paths.sourceRoot,
+                environment: environment,
+                timeout: AppConstants.Service.coreCommandTimeout
+            )
+        )
+    }
+
+    /// The Core CLI reads the same `CODEX_HOME` the Codex CLI uses; the launcher only forwards it.
+    nonisolated static func resolvedCodexHome(
+        from environment: [String: String],
+        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
+    ) -> URL {
+        let configured = environment["CODEX_HOME"]?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let configured, !configured.isEmpty {
+            return URL(fileURLWithPath: (configured as NSString).expandingTildeInPath, isDirectory: true)
+        }
+        return homeDirectory.appendingPathComponent(".codex", isDirectory: true)
+    }
+
+    /// Parses `ocx restore --json` and refuses to claim success on an unconfirmed restore.
+    ///
+    /// The envelope is the Core's machine-readable contract; a missing marker or a bare
+    /// `"success":false` must both block termination, because the alternative is quitting while
+    /// `~/.codex/config.toml` still points at the proxy.
+    nonisolated static func validateRestoreOutput(_ result: ManagedCLIResult) throws {
+        guard !result.timedOut, result.terminated else { throw CoreManagerError.restoreTimedOut }
+        guard result.succeeded, let payload = restoreEnvelope(in: result.output) else {
+            throw CoreManagerError.restoreFailed(cliFailureMessage(from: result))
+        }
+        guard let restored = payload["success"] as? Bool, restored else {
+            throw CoreManagerError.restoreFailed(payload["message"] as? String ?? "")
+        }
+    }
+
+    nonisolated private static func cliFailureMessage(from result: ManagedCLIResult) -> String {
+        if let payload = restoreEnvelope(in: result.output),
+            let message = payload["message"] as? String,
+            !message.isEmpty
+        {
+            return message
+        }
+        let text = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
+        return String(text.suffix(240))
+    }
+
+    /// The envelope is printed as the last JSON object on stdout; unrelated noise may precede it.
+    nonisolated private static func restoreEnvelope(in output: String) -> [String: Any]? {
+        for line in output.split(separator: "\n").reversed() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("{"), trimmed.hasSuffix("}"),
+                let data = trimmed.data(using: .utf8),
+                let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                object["success"] is Bool
+            else { continue }
+            return object
+        }
+        return nil
     }
 
     func openInstallationFolder() {

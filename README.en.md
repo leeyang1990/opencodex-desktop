@@ -5,8 +5,8 @@
 <div align="center">
   <img src="Assets/AppIcon-Source.png" width="120" alt="OpenCodex Desktop icon">
   <h1>OpenCodex Desktop</h1>
-  <p><strong>Native macOS launching, diagnostics, and updates for OpenCodex</strong></p>
-  <p>Manage the local Core and Codex CLI while leaving Providers, accounts, models, and routing to the OpenCodex Console.</p>
+  <p><strong>The everyday macOS control center for OpenCodex</strong></p>
+  <p>Finish common configuration quickly on the desktop, then jump directly to the OpenCodex Console for advanced settings.</p>
   <p>
     <img alt="macOS 14+" src="https://img.shields.io/badge/macOS-14%2B-111827?style=flat-square&logo=apple&logoColor=white">
     <img alt="Apple Silicon" src="https://img.shields.io/badge/Apple_Silicon-arm64-2563EB?style=flat-square&logo=apple&logoColor=white">
@@ -21,33 +21,48 @@
 
 ---
 
-OpenCodex Desktop is an independently developed community macOS client. It is not an OpenCodex source fork and does not bundle upstream source, account data, or Provider configuration. It focuses only on local capabilities a web page cannot perform independently.
+OpenCodex Desktop is an independently developed community macOS client. It is not an OpenCodex source fork and does not bundle upstream source, account data, or Provider configuration. It handles native work such as Core lifecycle, diagnostics, and applying changes to ChatGPT, while also turning the most common account, channel, and subagent operations into shorter native workflows. The OpenCodex Console remains the complete interface for advanced parameters.
 
 ## Preview
 
 <p align="center">
-  <a href="Assets/screenshots/native-control-center-v010.png">
-    <img src="Assets/screenshots/native-control-center-v010.png" width="100%" alt="Real OpenCodex Desktop interface">
-  </a>
+  <img src="Assets/screenshots/native-shell-home.png" width="72%" alt="Native interface from an earlier version">
 </p>
-<p align="center"><sub>Generated from the real app UI with local ports, PIDs, timestamps, and capacity details redacted.</sub></p>
+<p align="center"><sub>Real capture of an earlier version. The latest release has an updated layout.</sub></p>
 
 ## Highlights
 
-- **Core lifecycle** — Install, start, stop, and restart a compatible Core, retaining verified versions for failed-update rollback.
-- **Select a Codex CLI for Core** — Discover and validate CLIs from NVM, Homebrew, Codex.app, ChatGPT.app, and PATH. Selection affects only Core; it does not change the system command or switch accounts.
-- **Diagnostics and repair** — Inspect integrity, ports, disk space, token permissions, listening scope, code signature, and login items even while Core is offline.
-- **Native macOS integration** — Menu bar controls, Dock visibility, login items, notifications, Shortcuts, and a safe URL scheme.
-- **Verified updates** — Check GitHub Releases, download the exact Apple Silicon DMG, and verify its SHA-256 before opening it.
-- **OpenCodex Console entry** — Use Core-provided Provider, account, model, routing, log, and usage management in a dedicated tab.
+- **Common account actions** — Add Codex accounts through the browser, inspect quota, switch the active account, or pause one. Credentials never pass through the client.
+- **Simplified scheduling** — Choose quota, round-robin, or fill-first behavior; detailed priorities, cooldowns, and thresholds stay in the console.
+- **Quick API channel setup** — Add, enable, disable, set default, and probe channels. Configure protocols, keys, automatic/manual model lists and private-network access. Advanced configuration opens the WebUI providers page.
+- **Subagent preferences** — Choose up to five models and arrange their preference order; fallback and polling details stay in the console.
+- **Usage overview** — Seven-day request, token and usage charts without reading request bodies.
+- **Local proxy and ChatGPT** — Start, stop, copy the Base URL and restart ChatGPT. Explicit stop restores routing and then restarts ChatGPT if it is running.
+- **Verified updates** — Check GitHub Releases, download the exact Apple Silicon DMG, and verify SHA-256 before opening it.
+- **Online Core versions** — Settings fetches upstream stable releases with manual refresh and offline caching. Selections pin exact versions and digests, never automatically follow `latest`. Newly discovered releases are experimental and limited to Core 2.x with a launcher-pinned Bun runtime.
+
+## Surfaces
+
+Overview, Accounts, Channels, Subagents, and Settings share the main window's tab strip:
+
+| Page | Contents |
+| :--- | :--- |
+| Overview | Proxy status, Base URL, ChatGPT restart and seven-day usage charts |
+| Accounts | Add, inspect, switch, and pause accounts; choose a common scheduling strategy |
+| Channels | Add, enable, disable, set default, probe, and add a key |
+| Subagents | Select subagent models and arrange their preference order |
+| Settings | Desktop preferences, startup options, Core versions and updates; access diagnostics and logs |
 
 ## Desktop and Console Responsibilities
 
-| OpenCodex Desktop | OpenCodex Console |
+| OpenCodex Desktop (shell) | OpenCodex Console (web, one click away) |
 | :--- | :--- |
-| Core installation, lifecycle, updates, and rollback | Providers, accounts, models, and routing |
-| Local Codex CLI discovery, validation, and selection | Codex login and account pools |
-| Host diagnostics, security audit, and macOS integration | Logs, usage, and business configuration |
+| Add/switch/pause accounts; choose a common scheduling strategy | Account priority, cooldown, removal, auto-switch and failover thresholds |
+| Add/enable/probe channels, configure keys and model lists, choose the default | Full key-pool maintenance, deletion, custom models and routing |
+| Subagent model selection/order and aggregate usage charts | Fallback policy, polling, detailed usage, logs, integrations, and experiments |
+| Core lifecycle, diagnostics, updates, and ChatGPT restart | — |
+
+Both interfaces operate on the same Core-owned configuration; Desktop keeps no parallel copy. The top-right Console button opens complete settings, while Advanced configuration in the add-channel form opens the providers page. Both use the default browser; unsaved form values are not forwarded.
 
 ## Download and Install
 
@@ -58,7 +73,12 @@ Download the DMG from [GitHub Releases](https://github.com/leeyang1990/opencodex
 ## Behavior Boundaries
 
 - Core is decoupled from the Desktop window after launch; quitting Desktop does not stop an already-running Core.
-- To disable the proxy, explicitly choose **Stop Core** in Desktop.
+- Core does not start with Desktop by default. Starting Core with Desktop and launching Desktop at login are independent preferences.
+- By default Desktop restores native Codex routing and restarts ChatGPT before quitting, so ChatGPT is not left pointing at a proxy that is about to disappear. The behavior can be turned off in **Settings › Client**.
+- Desktop writes only a curated set of common settings through the Core's own endpoints. Fine-grained account scheduling, full channel and subagent parameters, custom models, routing, usage, and logs stay in the console.
+- A channel API key lives in memory for the current session only, is written to the Core, and is then dropped; it never reaches preferences, the event log, or a log file, and the shell only reads back the Core's masked form. Codex sign-in opens the browser from the Core, so credentials never pass through the client.
+- Both restore and re-point run through the Core's own recovery flow; Desktop never parses or rewrites `~/.codex/config.toml` itself. The next launch re-points Codex at the local proxy and offers a ChatGPT restart when the running app still holds the old configuration.
+- To disable the proxy, choose **Stop**: stop Core, restore routing, then restart ChatGPT if it is running. This is not automatic crash recovery.
 - Selecting a Codex CLI only specifies an executable for the Core process. It does not modify global `PATH`, terminal commands, or Codex accounts.
 - Provider, account, and model configuration remains in a separate OpenCodex data directory and survives Core updates or removal.
 - Desktop management requests connect only to loopback hosts.

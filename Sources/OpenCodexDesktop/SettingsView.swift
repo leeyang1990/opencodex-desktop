@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var model: AppModel
+    @Environment(\.openWindow) private var openWindow
     @StateObject var loginItem = LoginItemManager()
     @ObservedObject var coreManager = CoreManager.shared
     @ObservedObject var applicationAppearance = ApplicationAppearance.shared
@@ -15,25 +16,28 @@ struct SettingsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                PageHeader(
-                    title: "设置",
-                    subtitle: "配置 Desktop 连接与 macOS 原生能力"
-                )
+            VStack(alignment: .leading, spacing: 18) {
+                PageHeader(title: "设置")
+                    .padding(.bottom, 2)
 
-                connectionSection
-                applicationSection
+                clientSection
                 coreSection
-                securitySection
+                clientUpdateStatus.cardStyle()
+                HStack {
+                    Button("诊断…") { openWindow(id: ShellWindow.diagnostics) }
+                    Button("查看内核日志") { model.openCoreLog() }
+                    Spacer()
+                }
+                .shellButtonStyle()
             }
-            .padding(28)
-            .frame(maxWidth: 820, alignment: .leading)
+            .padding(.horizontal, 24)
+            .padding(.top, 18)
+            .padding(.bottom, 32)
+            .frame(maxWidth: 860, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .top)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
-        .onAppear {
-            loadValues()
-            model.runEnvironmentCheck()
-        }
+        .onAppear { loadValues() }
+        .task { await coreManager.refreshAvailableVersions() }
         .confirmationDialog(
             "卸载 OpenCodex 内核？",
             isPresented: $confirmUninstall,
@@ -44,7 +48,7 @@ struct SettingsView: View {
             }
             Button("取消", role: .cancel) {}
         } message: {
-            Text("只会删除已安装的内核运行文件，Provider、账号与配置数据会保留。")
+            Text("仅删除内核文件，保留账号、渠道与配置。")
         }
     }
 }

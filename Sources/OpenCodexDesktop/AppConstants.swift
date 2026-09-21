@@ -17,5 +17,23 @@ enum AppConstants {
         static let interruptTimeout: Duration = .seconds(1)
         static let forceKillTimeout: Duration = .seconds(1)
         static let processPollInterval: Duration = .milliseconds(100)
+        /// Bound for one-shot Core CLI commands such as `ocx restore`.
+        static let coreCommandTimeout: Duration = .seconds(20)
+    }
+
+    enum Accounts {
+        /// How long a browser sign-in may stay pending before the client gives up.
+        static let loginTimeout: Duration = .seconds(300)
+        static let loginPollInterval: Duration = .seconds(2)
+    }
+
+    enum ChatGPT {
+        static let bundleIdentifier = "com.openai.codex"
+        static let applicationName = "ChatGPT"
+        /// Time allowed for a cooperative quit. ChatGPT runs the Codex app-server, so it gets a
+        /// generous window to flush its own state; nothing is force-killed.
+        static let quitTimeout: Duration = .seconds(15)
+        static let quitPollInterval: Duration = .milliseconds(200)
+        static let terminationReplyTimeout: Duration = .seconds(25)
     }
 }

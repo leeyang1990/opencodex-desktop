@@ -3,6 +3,20 @@ import XCTest
 
 @testable import OpenCodexDesktop
 
+extension DesktopEventStore {
+    /// A store in a throwaway file.
+    ///
+    /// AppModel writes lifecycle events, and a test that reuses `.shared` pollutes the developer's
+    /// real timeline with fixtures — which is exactly what happened before this existed.
+    static func scratch(function: String = #function) -> DesktopEventStore {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ocx-event-tests", isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let file = directory.appendingPathComponent("\(function)-\(UUID().uuidString).json")
+        return DesktopEventStore(fileURL: file)
+    }
+}
+
 @MainActor
 final class DesktopEventStoreTests: XCTestCase {
     func testRedactsAndPersistsAllowlistedEvents() throws {

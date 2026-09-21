@@ -2,6 +2,35 @@
 
 All notable changes to OpenCodex Desktop are documented here. The project follows semantic versioning for tagged releases.
 
+## 0.10.2 - 2026-09-21
+
+### Added
+
+- Native shortcuts for Codex account sign-in, switching, pausing and common scheduling strategies; channel setup and up to five ordered subagent model preferences.
+- Complete common channel setup with protocol guidance, API-key or local authentication, automatic/manual model lists, a default model, private-network access and notes. **Advanced configuration** opens the Core WebUI's providers page without forwarding form values or credentials.
+- Seven-day aggregate usage charts on the overview page, without reading request content.
+- Independent startup controls for launching Desktop at login and starting Core with Desktop; automatic Core startup is off by default.
+- Online Core version selection with a short recent-version list, exact artifact digests, compatibility limits and offline caching.
+- Native ChatGPT restart and Core-owned routing restoration. Explicit **Stop** stops Core, restores routing and restarts ChatGPT if it is running. Optional quit-time restoration is separate; this does not provide crash recovery.
+
+### Changed
+
+- Keep overview, accounts, channels, subagents and settings in one main-window tab strip. Advanced management remains in the browser-based Core console; Desktop keeps no parallel provider configuration.
+- Use a light AppKit frosted window, translucent white cards and higher-contrast controls. Refine the native menu-bar icon and Dock visibility behavior.
+- Restore and re-point routing through bounded Core CLI commands rather than directly rewriting Codex configuration. Report partial failures instead of claiming successful cleanup.
+
+### Fixed
+
+- Correct channel API payloads and Gemini's `google` protocol identifier; validate names, addresses and model selections before saving.
+- Check for existing channel names before Core's upsert endpoint, save credentials before switching the default, and display partial-save failures inside the form.
+- Require positive write acknowledgements, prevent repeated saves, and cap subagent selections before sending them to Core.
+- Improve local ChatGPT discovery, CLI checks, Dock policy reconciliation and stop/restore error handling.
+
+### Downloads
+
+- Apple Silicon (arm64), macOS 14 or later. DMG and ZIP include SHA-256 sidecars.
+- Ad-hoc signed, not Apple-notarized. Core is installed separately; runtime files, user configuration, credentials and logs are excluded from the app bundle.
+
 ## 0.10.1 - 2026-08-30
 
 ### Changed

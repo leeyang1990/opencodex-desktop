@@ -9,6 +9,7 @@ enum OpenCodexAPIError: LocalizedError, Equatable {
     case server(status: Int, message: String)
     case invalidResponse
     case transport(String)
+    case operationFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -20,6 +21,7 @@ enum OpenCodexAPIError: LocalizedError, Equatable {
         case let .server(_, message): message
         case .invalidResponse: "服务返回了无法识别的数据"
         case let .transport(message): message
+        case let .operationFailed(message): message
         }
     }
 }
@@ -121,7 +123,204 @@ actor OpenCodexAPIClient {
     }
 
     func stopProxy() async throws {
-        let _: APIAcknowledgement = try await request(path: "/api/stop", method: "POST", body: Optional<String>.none)
+        let response: APIAcknowledgement = try await request(
+            path: "/api/stop", method: "POST", body: Optional<String>.none)
+        guard response.success == true else {
+            throw OpenCodexAPIError.operationFailed(response.message ?? "内核未确认停止及路由还原成功。")
+        }
+    }
+
+    /// Readiness failures/timeouts do not prove that a process has exited. Only a refused
+    /// loopback connection counts as stopped; any HTTP response still means a listener exists.
+    func isProxyListenerStopped() async throws -> Bool {
+        let base = try baseURL()
+        guard let url = URL(string: "/readyz", relativeTo: base) else { throw OpenCodexAPIError.invalidAddress }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 1
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        do {
+            _ = try await session.data(for: request)
+            return false
+        } catch let error as URLError where error.code == .cannotConnectToHost {
+            return true
+        } catch {
+            throw error
+        }
+    }
+
+    /// The Core's own model list: provider, native/routed, and current visibility.
+    func models() async throws -> [ManagedModel] {
+        try await request(path: "/api/models")
+    }
+
+    /// The provider summary the shell shows. Only key presence is reported, never key material.
+    func config() async throws -> CoreConfig {
+        try await request(path: "/api/config")
+    }
+
+    /// Aggregated usage only. The Core does not include prompts, response bodies, credentials,
+    /// or account identifiers in this payload.
+    func usage(range: String = "7d") async throws -> UsageReport {
+        try await request(path: "/api/usage?range=\(escaped(range))")
+    }
+
+    /// Enables or disables models exactly as the console does, then lets the Core refresh the
+    /// Codex catalog. `scope` is `provider` when a whole provider is switched at once.
+    func setModelVisibility(
+        provider: String,
+        targets: [ModelVisibilityTarget],
+        enabled: Bool,
+        scope: String = "models"
+    ) async throws {
+        let body = ModelVisibilityRequest(scope: scope, provider: provider, enabled: enabled, targets: targets)
+        let response: APIAcknowledgement = try await request(
+            path: "/api/model-visibility",
+            method: "PUT",
+            body: body
+        )
+        guard response.ok != false else {
+            throw OpenCodexAPIError.server(status: 200, message: response.message ?? "模型可见性更新被拒绝")
+        }
+    }
+
+    // MARK: - Codex accounts
+
+    func codexAccounts() async throws -> [CodexAccount] {
+        let response: CodexAccountList = try await request(path: "/api/codex-auth/accounts")
+        return response.accounts
+    }
+
+    func codexScheduling() async throws -> CodexAccountScheduling {
+        try await request(path: "/api/codex-auth/active")
+    }
+
+    /// Starts a browser sign-in. The Core opens the browser itself and returns a flow to poll.
+    func startCodexLogin(reauth accountID: String? = nil) async throws -> CodexLoginStatus {
+        let body = CodexLoginRequest(id: accountID, reauth: accountID == nil ? nil : true)
+        return try await request(path: "/api/codex-auth/login", method: "POST", body: body)
+    }
+
+    func codexLoginStatus(flowID: String) async throws -> CodexLoginStatus {
+        try await request(path: "/api/codex-auth/login-status?flowId=\(escaped(flowID))")
+    }
+
+    func cancelCodexLogin(flowID: String) async throws {
+        let _: EmptyResponse = try await request(
+            path: "/api/codex-auth/login/cancel",
+            method: "POST",
+            body: CodexLoginCancellation(flowId: flowID)
+        )
+    }
+
+    /// Pins the active pool account, or returns to the plain Codex login with `nil`.
+    func selectCodexAccount(_ accountID: String?) async throws {
+        let _: APIAcknowledgement = try await request(
+            path: "/api/codex-auth/active",
+            method: "PUT",
+            body: CodexAccountSelection(accountId: accountID)
+        )
+    }
+
+    func setCodexAccountPaused(_ accountID: String, paused: Bool) async throws {
+        let _: APIAcknowledgement = try await request(
+            path: "/api/codex-auth/accounts/pause",
+            method: "PUT",
+            body: CodexAccountPause(id: accountID, paused: paused)
+        )
+    }
+
+    func setCodexPoolStrategy(_ strategy: String, stickyLimit: Int) async throws {
+        let _: APIAcknowledgement = try await request(
+            path: "/api/codex-auth/pool-strategy",
+            method: "PUT",
+            body: CodexPoolStrategy(strategy: strategy, stickyLimit: stickyLimit)
+        )
+    }
+
+    // MARK: - API channels
+
+    func channels() async throws -> [APIChannel] {
+        try await request(path: "/api/providers")
+    }
+
+    func createChannel(name: String, payload: ChannelPayload, setDefault: Bool) async throws {
+        let body = ChannelCreation(name: name, provider: payload, setDefault: setDefault)
+        let response: APIAcknowledgement = try await request(path: "/api/providers", method: "POST", body: body)
+        guard response.success == true else {
+            throw OpenCodexAPIError.operationFailed("渠道保存未获确认")
+        }
+    }
+
+    /// Applies a flat field mask to an existing channel.
+    func updateChannel(name: String, patch: ChannelPatch) async throws {
+        guard !patch.isEmpty else { return }
+        let _: APIAcknowledgement = try await request(
+            path: "/api/providers?name=\(escaped(name))",
+            method: "PATCH",
+            body: patch
+        )
+    }
+
+    /// Sets the default channel. The Core accepts this only as a standalone field.
+    func setDefaultChannel(name: String) async throws {
+        let response: APIAcknowledgement = try await request(
+            path: "/api/providers?name=\(escaped(name))",
+            method: "PATCH",
+            body: ChannelDefaultPatch(setDefault: true)
+        )
+        guard response.success == true else {
+            throw OpenCodexAPIError.operationFailed("默认渠道修改未获确认")
+        }
+    }
+
+    /// Adds one credential to a channel's key pool.
+    func addChannelKey(name: String, key: String, label: String? = nil) async throws {
+        let response: APIKeyCreation = try await request(
+            path: "/api/providers/keys",
+            method: "POST",
+            body: ChannelKeyCreation(name: name, key: key, label: label)
+        )
+        guard response.ok == true else {
+            throw OpenCodexAPIError.server(status: 200, message: "API Key 写入被拒绝")
+        }
+    }
+
+    /// The channel's credentials, masked by the Core.
+    func channelKeys(name: String) async throws -> ProviderKeyPool {
+        try await request(path: "/api/providers/keys?name=\(escaped(name))")
+    }
+
+    /// Probes the channel's own stored configuration; the name travels as a query parameter.
+    func testChannel(name: String) async throws -> ChannelProbeResult {
+        try await request(
+            path: "/api/providers/test?name=\(escaped(name))",
+            method: "POST",
+            body: Optional<String>.none
+        )
+    }
+
+    // MARK: - Subagents
+
+    func subagentSelection() async throws -> SubagentSelection {
+        try await request(path: "/api/subagent-models")
+    }
+
+    func setSubagentSelection(_ models: [String]) async throws {
+        // The Core keeps the first five silently; capping here keeps UI and server agreeing.
+        let capped = Array(models.prefix(SubagentSelection.maximumChosen))
+        let _: APIAcknowledgement = try await request(
+            path: "/api/subagent-models",
+            method: "PUT",
+            body: SubagentSelectionRequest(models: capped)
+        )
+    }
+
+    // MARK: - Transport
+
+    /// Percent-encodes a path component or query value; identifiers here are user data.
+    private func escaped(_ value: String) -> String {
+        value.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~")))
+            ?? value
     }
 
     private func request<Response: Decodable>(
@@ -191,6 +390,62 @@ actor OpenCodexAPIClient {
             throw OpenCodexAPIError.transport(error.localizedDescription)
         }
     }
+}
+
+// MARK: - Response envelopes
+
+private struct CodexAccountList: Decodable {
+    let accounts: [CodexAccount]
+}
+
+// MARK: - Request bodies
+
+private struct CodexLoginRequest: Encodable {
+    let id: String?
+    let reauth: Bool?
+}
+
+private struct CodexLoginCancellation: Encodable {
+    let flowId: String
+}
+
+private struct CodexAccountSelection: Encodable {
+    let accountId: String?
+}
+
+private struct CodexAccountPause: Encodable {
+    let id: String
+    let paused: Bool
+}
+
+private struct CodexPoolStrategy: Encodable {
+    let strategy: String
+    let stickyLimit: Int
+}
+
+private struct ChannelCreation: Encodable {
+    let name: String
+    let provider: ChannelPayload
+    let setDefault: Bool
+}
+
+private struct ChannelDefaultPatch: Encodable {
+    let setDefault: Bool
+}
+
+private struct ChannelKeyCreation: Encodable {
+    let name: String
+    let key: String
+    let label: String?
+}
+
+private struct APIKeyCreation: Decodable {
+    let ok: Bool?
+    let id: String?
+}
+
+private struct SubagentSelectionRequest: Encodable {
+    let models: [String]
 }
 
 private struct APIErrorBody: Decodable {

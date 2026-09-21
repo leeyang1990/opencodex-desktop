@@ -1,34 +1,31 @@
 import SwiftUI
 
 enum AppPalette {
-    static let accent = Color(red: 0.32, green: 0.35, blue: 0.96)
-    static let success = Color(red: 0.20, green: 0.68, blue: 0.43)
-    static let warning = Color(red: 0.95, green: 0.60, blue: 0.18)
-    static let danger = Color(red: 0.91, green: 0.30, blue: 0.32)
+    static let accent = Color(red: 0.31, green: 0.26, blue: 0.82)
+    static let success = Color(red: 0.10, green: 0.43, blue: 0.29)
+    static let warning = Color(red: 0.64, green: 0.32, blue: 0.02)
+    static let danger = Color(red: 0.76, green: 0.17, blue: 0.20)
 }
 
+/// Quiet content panels sit on a single desktop-backed frosted window.
 struct CardStyle: ViewModifier {
     var padding: CGFloat = 18
+    var tint: Color?
 
     func body(content: Content) -> some View {
-        content
-            .padding(padding)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(.primary.opacity(0.07))
-            }
+        content.glassPanel(padding: padding, tint: tint)
     }
 }
 
 extension View {
-    func cardStyle(padding: CGFloat = 18) -> some View {
-        modifier(CardStyle(padding: padding))
+    func cardStyle(padding: CGFloat = 18, tint: Color? = nil) -> some View {
+        modifier(CardStyle(padding: padding, tint: tint))
     }
 }
 
 struct StatusDot: View {
     let state: ConnectionState
+    var size: CGFloat = 8
 
     private var color: Color {
         switch state {
@@ -42,23 +39,25 @@ struct StatusDot: View {
     var body: some View {
         Circle()
             .fill(color)
-            .frame(width: 8, height: 8)
-            .shadow(color: color.opacity(0.45), radius: state == .online ? 4 : 0)
+            .frame(width: size, height: size)
+            .shadow(color: color.opacity(0.5), radius: state == .online ? 5 : 0)
             .accessibilityHidden(true)
     }
 }
 
 struct PageHeader: View {
     let title: String
-    let subtitle: String
+    var subtitle: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-            Text(subtitle)
-                .font(.callout)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 23, weight: .semibold))
+            if let subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -76,7 +75,7 @@ struct MetricCard: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(tint)
                 .frame(width: 36, height: 36)
-                .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .glassControl(tint: tint.opacity(0.18))
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.caption)
@@ -95,17 +94,23 @@ struct MetricCard: View {
     }
 }
 
+/// Compact glass badge used for provider and model state.
 struct Pill: View {
     let text: String
     var color: Color = .secondary
+    var symbol: String?
 
     var body: some View {
-        Text(text)
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(color.opacity(0.11), in: Capsule())
+        HStack(spacing: 4) {
+            if let symbol {
+                Image(systemName: symbol).font(.system(size: 9, weight: .bold))
+            }
+            Text(text).font(.caption2.weight(.semibold))
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 4.5)
+        .glassControl(tint: color.opacity(0.30))
     }
 }
 
@@ -124,7 +129,7 @@ struct EmptyState: View {
         } actions: {
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
-                    .buttonStyle(.borderedProminent)
+                    .shellButtonStyle(prominent: true)
             }
         }
     }
