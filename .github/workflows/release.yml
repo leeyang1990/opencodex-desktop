@@ -1,6 +1,12 @@
 name: Release macOS App
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build and publish
+        required: true
+        type: string
   push:
     tags:
       - "v*.*.*"
@@ -9,33 +15,42 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   release:
     name: Build and publish arm64 release
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.1.1.app/Contents/Developer
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
     steps:
+      - name: Validate release tag
+        shell: bash
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+
       - name: Check out tagged source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
 
       - name: Build and verify release package
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          ./scripts/release.sh "$version"
+          version="${RELEASE_TAG#v}"
+          GITHUB_REF_TYPE=tag GITHUB_REF_NAME="$RELEASE_TAG" ./scripts/release.sh "$version"
 
       - name: Publish GitHub Release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           archive="dist/release/OpenCodex-Desktop-v${version}-macOS-arm64.zip"
           dmg="dist/release/OpenCodex-Desktop-v${version}-macOS-arm64.dmg"
           checksum="${archive}.sha256"
@@ -53,12 +68,12 @@ jobs:
             exit 1
           fi
 
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" \
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" \
               "$archive" "$checksum" "$dmg" "$dmg_checksum" --clobber
-            gh release edit "$GITHUB_REF_NAME" --notes-file "$notes_file"
+            gh release edit "$RELEASE_TAG" --notes-file "$notes_file"
           else
-            gh release create "$GITHUB_REF_NAME" \
+            gh release create "$RELEASE_TAG" \
               "$archive" "$checksum" "$dmg" "$dmg_checksum" \
               --verify-tag \
               --notes-file "$notes_file" \
