@@ -63,7 +63,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
         let cleanup = Task { await model.runExitCleanup() }
         guard await wait(for: cleanup, timeout: timeout) else {
             cleanup.cancel()
-            return "退出前的还原尚未完成，Codex 配置可能仍指向本机代理。请稍后重试退出。"
+            return L10n.tr("退出前的还原尚未完成，Codex 配置可能仍指向本机代理。请稍后重试退出。")
         }
         return await cleanup.value
     }
@@ -99,27 +99,29 @@ struct OpenCodexDesktopApp: App {
         Window("OpenCodex Desktop", id: "main") {
             RootView()
                 .environmentObject(model)
+                .environment(\.locale, L10n.locale)
                 .onAppear { applicationDelegate.model = model }
         }
         .defaultSize(width: 1040, height: 700)
         .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(after: .appInfo) {
-                Button("检查更新…") {
+                Button(L10n.tr("检查更新…")) {
                     Task { await AppUpdateManager.shared.checkForUpdatesPresentingResult() }
                 }
             }
             CommandGroup(after: .toolbar) {
-                Button("刷新") {
+                Button(L10n.tr("刷新")) {
                     Task { await model.refresh() }
                 }
                 .keyboardShortcut("r")
             }
         }
 
-        Window("诊断", id: ShellWindow.diagnostics) {
+        Window(L10n.tr("诊断"), id: ShellWindow.diagnostics) {
             DiagnosticsView()
                 .environmentObject(model)
+                .environment(\.locale, L10n.locale)
                 .liquidWindowSurface()
         }
         .defaultSize(width: 940, height: 760)
@@ -127,6 +129,7 @@ struct OpenCodexDesktopApp: App {
         MenuBarExtra {
             MenuBarContent()
                 .environmentObject(model)
+                .environment(\.locale, L10n.locale)
         } label: {
             Image(nsImage: MenuBarIcon.image)
                 .renderingMode(.template)
@@ -183,40 +186,40 @@ private struct MenuBarContent: View {
                 Text("OpenCodex \(version)\(model.health?.pid.map { " · PID \($0)" } ?? "")")
                     .font(.caption)
             } else {
-                Text("已选择 \(coreManager.targetRelease.version)")
+                Text(L10n.tr("已选择 \(coreManager.targetRelease.version)"))
                     .font(.caption)
             }
         }
         Divider()
-        Button("打开 OpenCodex Desktop") {
+        Button(L10n.tr("打开 OpenCodex Desktop")) {
             show(.home)
         }
-        Button("账号") { show(.accounts) }
-        Button("渠道") { show(.channels) }
-        Button("子代理") { show(.subagents) }
-        Button("设置") { show(.settings) }
+        Button(L10n.tr("账号")) { show(.accounts) }
+        Button(L10n.tr("渠道")) { show(.channels) }
+        Button(L10n.tr("子代理")) { show(.subagents) }
+        Button(L10n.tr("设置")) { show(.settings) }
         Divider()
-        Button("诊断…") { openWindow(id: ShellWindow.diagnostics) }
+        Button(L10n.tr("诊断…")) { openWindow(id: ShellWindow.diagnostics) }
         Divider()
         if model.isOnline {
-            Button("重启本机代理") { Task { await model.restartService() } }
-            Button("停止本机代理") { Task { await model.stopService() } }
-                .help("还原路由，并重启正在运行的 ChatGPT")
+            Button(L10n.tr("重启本机代理")) { Task { await model.restartService() } }
+            Button(L10n.tr("停止本机代理")) { Task { await model.stopService() } }
+                .help(L10n.tr("还原路由，并重启正在运行的 ChatGPT"))
         } else if coreManager.installationState.isInstalled {
-            Button("启动本机代理") { Task { await model.startService() } }
+            Button(L10n.tr("启动本机代理")) { Task { await model.startService() } }
         } else {
-            Button("下载并安装内核") {
+            Button(L10n.tr("下载并安装内核")) {
                 openWindow(id: "main")
                 NSApp.activate(ignoringOtherApps: true)
                 Task { await model.installCore() }
             }
         }
-        Button("重启 ChatGPT（应用 Codex 配置）") {
-            Task { await model.restartChatGPT(reason: "菜单栏") }
+        Button(L10n.tr("重启 ChatGPT（应用 Codex 配置）")) {
+            Task { await model.restartChatGPT(reason: L10n.tr("菜单栏")) }
         }
         .disabled(model.isRestartingChatGPT)
         Divider()
-        Button(model.restoresRoutingOnQuit ? "退出并还原 Codex 路由" : "退出（保留 Codex 路由）") {
+        Button(model.restoresRoutingOnQuit ? L10n.tr("退出并还原 Codex 路由") : L10n.tr("退出（保留 Codex 路由）")) {
             NSApp.terminate(nil)
         }
     }

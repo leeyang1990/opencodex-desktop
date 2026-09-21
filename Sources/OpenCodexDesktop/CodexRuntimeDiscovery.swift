@@ -13,14 +13,14 @@ enum CodexRuntimeSource: String, Codable, CaseIterable, Sendable {
 
     var title: String {
         switch self {
-        case .desktopPreference: "Desktop 偏好"
-        case .coreConfigured: "Core 历史选择"
-        case .environment: "环境变量"
+        case .desktopPreference: L10n.tr("Desktop 偏好")
+        case .coreConfigured: L10n.tr("Core 历史选择")
+        case .environment: L10n.tr("环境变量")
         case .nvm: "NVM"
         case .homebrew: "Homebrew"
         case .codexApp: "Codex.app"
         case .chatGPTApp: "ChatGPT.app"
-        case .path: "系统 PATH"
+        case .path: L10n.tr("系统 PATH")
         }
     }
 }
@@ -189,7 +189,7 @@ enum CodexRuntimeDiscovery {
         fileManager: FileManager
     ) -> CodexRuntimeCandidate {
         guard fileManager.isExecutableFile(atPath: path) else {
-            return CodexRuntimeCandidate(path: path, source: source, version: nil, validationError: "文件不可执行")
+            return CodexRuntimeCandidate(path: path, source: source, version: nil, validationError: L10n.tr("文件不可执行"))
         }
 
         let process = Process()
@@ -206,7 +206,7 @@ enum CodexRuntimeDiscovery {
                 path: path,
                 source: source,
                 version: nil,
-                validationError: "无法启动：\(error.localizedDescription)"
+                validationError: L10n.tr("无法启动：\(error.localizedDescription)")
             )
         }
 
@@ -218,7 +218,7 @@ enum CodexRuntimeDiscovery {
             process.terminate()
             Thread.sleep(forTimeInterval: 0.1)
             if process.isRunning { Darwin.kill(process.processIdentifier, SIGKILL) }
-            return CodexRuntimeCandidate(path: path, source: source, version: nil, validationError: "版本检查超时")
+            return CodexRuntimeCandidate(path: path, source: source, version: nil, validationError: L10n.tr("版本检查超时"))
         }
 
         let data = output.fileHandleForReading.readDataToEndOfFile().prefix(4_096)
@@ -230,7 +230,7 @@ enum CodexRuntimeDiscovery {
                 path: path,
                 source: source,
                 version: nil,
-                validationError: text.isEmpty ? "无法读取版本" : String(text.prefix(160))
+                validationError: text.isEmpty ? L10n.tr("无法读取版本") : String(text.prefix(160))
             )
         }
         return CodexRuntimeCandidate(path: path, source: source, version: version, validationError: nil)

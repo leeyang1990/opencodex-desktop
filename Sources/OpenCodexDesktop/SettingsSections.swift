@@ -4,11 +4,11 @@ import SwiftUI
 extension SettingsView {
     var clientSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionHeader("客户端", symbol: "macwindow")
+            sectionHeader(L10n.tr("客户端"), symbol: "macwindow")
 
             settingRow(
-                title: "退出时还原 Codex 路由",
-                detail: "还原原生路由并重启 ChatGPT；内核继续运行。"
+                title: L10n.tr("退出时还原 Codex 路由"),
+                detail: L10n.tr("还原原生路由并重启 ChatGPT；内核继续运行。")
             ) {
                 Toggle(
                     "",
@@ -24,18 +24,18 @@ extension SettingsView {
             Divider()
 
             settingRow(
-                title: "重启 ChatGPT",
-                detail: "使路由与模型配置生效"
+                title: L10n.tr("重启 ChatGPT"),
+                detail: L10n.tr("使路由与模型配置生效")
             ) {
-                Button("立即重启") { Task { await model.restartChatGPT(reason: "设置") } }
+                Button(L10n.tr("立即重启")) { Task { await model.restartChatGPT(reason: L10n.tr("设置")) } }
                     .disabled(model.isRestartingChatGPT)
             }
 
             Divider()
 
             settingRow(
-                title: "在 Dock 中显示",
-                detail: "关闭后可从菜单栏打开"
+                title: L10n.tr("在 Dock 中显示"),
+                detail: L10n.tr("关闭后可从菜单栏打开")
             ) {
                 Toggle(
                     "",
@@ -51,16 +51,16 @@ extension SettingsView {
                     )
                 )
                 .labelsHidden()
-                .accessibilityLabel("在 Dock 中显示")
+                .accessibilityLabel(L10n.tr("在 Dock 中显示"))
                 .toggleStyle(.switch)
             }
-            .help("关闭后也会从 ⌘-Tab 移除。Dock 中固定或最近使用的快捷方式需手动移除。")
+            .help(L10n.tr("关闭后也会从 ⌘-Tab 移除。Dock 中固定或最近使用的快捷方式需手动移除。"))
 
             Divider()
 
             settingRow(
-                title: "系统通知",
-                detail: "仅提醒异常与更新"
+                title: L10n.tr("系统通知"),
+                detail: L10n.tr("仅提醒异常与更新")
             ) {
                 Toggle(
                     "",
@@ -74,7 +74,7 @@ extension SettingsView {
             }
 
             if notificationManager.authorizationDenied {
-                Label("请在系统设置 › 通知中允许 OpenCodex。", systemImage: "exclamationmark.triangle.fill")
+                Label(L10n.tr("请在系统设置 › 通知中允许 OpenCodex。"), systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(AppPalette.warning)
             }
@@ -82,7 +82,7 @@ extension SettingsView {
             Divider()
 
             settingRow(
-                title: "登录 Mac 时启动 App"
+                title: L10n.tr("登录 Mac 时启动 App")
             ) {
                 Toggle(
                     "",
@@ -101,11 +101,11 @@ extension SettingsView {
 
             if loginItem.requiresApproval {
                 HStack {
-                    Label("需要在系统设置中批准登录项", systemImage: "exclamationmark.triangle.fill")
+                    Label(L10n.tr("需要在系统设置中批准登录项"), systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
                         .foregroundStyle(AppPalette.warning)
                     Spacer()
-                    Button("打开系统设置") { loginItem.openSystemSettings() }
+                    Button(L10n.tr("打开系统设置")) { loginItem.openSystemSettings() }
                 }
             }
         }
@@ -114,7 +114,7 @@ extension SettingsView {
 
     var coreSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionHeader("内核", symbol: "shippingbox")
+            sectionHeader(L10n.tr("内核"), symbol: "shippingbox")
 
             coreVersionSelection
 
@@ -124,7 +124,7 @@ extension SettingsView {
             Divider()
 
             settingRow(
-                title: "随 App 启动内核"
+                title: L10n.tr("随 App 启动内核")
             ) {
                 Toggle(
                     "",
@@ -137,7 +137,7 @@ extension SettingsView {
                 .toggleStyle(.switch)
             }
 
-            Label("退出 App 不停止内核，可在首页停止。", systemImage: "bolt.shield.fill")
+            Label(L10n.tr("退出 App 不停止内核，可在首页停止。"), systemImage: "bolt.shield.fill")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -146,21 +146,21 @@ extension SettingsView {
 
     var connectionSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionHeader("连接", symbol: "network")
+            sectionHeader(L10n.tr("连接"), symbol: "network")
             Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 12) {
                 GridRow {
-                    Text("主机").foregroundStyle(.secondary)
+                    Text(L10n.tr("主机")).foregroundStyle(.secondary)
                     TextField("127.0.0.1", text: $host)
                         .textFieldStyle(.roundedBorder)
                 }
                 GridRow {
-                    Text("端口").foregroundStyle(.secondary)
+                    Text(L10n.tr("端口")).foregroundStyle(.secondary)
                     TextField("10100", value: $port, format: .number.grouping(.never))
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 150, alignment: .leading)
                 }
             }
-            Text("为保护管理令牌，客户端只接受 127.0.0.1、localhost 或 ::1。")
+            Text(L10n.tr("为保护管理令牌，客户端只接受 127.0.0.1、localhost 或 ::1。"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             HStack {
@@ -171,7 +171,7 @@ extension SettingsView {
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                 Spacer()
-                Button("应用并重连") {
+                Button(L10n.tr("应用并重连")) {
                     model.connectionHost = host
                     model.connectionPort = port
                     Task { await model.saveConnection() }
@@ -185,9 +185,9 @@ extension SettingsView {
     var coreVersionSelection: some View {
         VStack(alignment: .leading, spacing: 12) {
             settingRow(
-                title: "版本来源",
+                title: L10n.tr("版本来源"),
                 detail: coreManager.versionMode == .build
-                    ? "已随客户端验证"
+                    ? L10n.tr("已随客户端验证")
                     : nil
             ) {
                 Picker("", selection: coreVersionModeBinding) {
@@ -203,8 +203,8 @@ extension SettingsView {
 
             if coreManager.versionMode == .custom {
                 settingRow(
-                    title: "选择版本",
-                    detail: "实验性支持，未完整验证；可切回构建版本。"
+                    title: L10n.tr("选择版本"),
+                    detail: L10n.tr("实验性支持，未完整验证；可切回构建版本。")
                 ) {
                     Picker("", selection: customCoreVersionBinding) {
                         ForEach(coreVersionOptions, id: \.version) { option in
@@ -220,18 +220,20 @@ extension SettingsView {
                         ProgressView().controlSize(.small)
                     }
                     if coreManager.isPreparingVersion {
-                        Text("正在校验版本…")
+                        Text(L10n.tr("正在校验版本…"))
                     } else if let catalog = coreManager.onlineCatalog {
                         Text(
-                            "最新 \(catalog.latest ?? "未知") · \(catalog.fetchedAt.formatted(date: .abbreviated, time: .shortened))"
+                            L10n.tr(
+                                "最新 \(catalog.latest ?? L10n.tr("未知")) · \(catalog.fetchedAt.formatted(date: .abbreviated, time: .shortened))"
+                            )
                         )
                     } else {
-                        Text("在线列表未获取，显示内置版本")
+                        Text(L10n.tr("在线列表未获取，显示内置版本"))
                     }
                     Spacer()
-                    Button("刷新版本") { Task { await coreManager.refreshAvailableVersions() } }
+                    Button(L10n.tr("刷新版本")) { Task { await coreManager.refreshAvailableVersions() } }
                         .disabled(coreManager.isRefreshingVersions || coreManager.isPreparingVersion)
-                        .help("联网刷新列表，不会切换内核。仅支持 Core 2.x 与已适配的 Bun；选择后校验并锁定版本。")
+                        .help(L10n.tr("联网刷新列表，不会切换内核。仅支持 Core 2.x 与已适配的 Bun；选择后校验并锁定版本。"))
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -241,7 +243,7 @@ extension SettingsView {
             }
 
             if model.isOnline || coreManager.ownsRunningProcess || coreManager.installationState.isBusy {
-                Label("请先停止代理再切换版本。", systemImage: "info.circle")
+                Label(L10n.tr("请先停止代理再切换版本。"), systemImage: "info.circle")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -264,7 +266,7 @@ extension SettingsView {
                         let release = try await coreManager.prepareVersion(version)
                         guard !model.isOnline, !coreManager.ownsRunningProcess, !coreManager.installationState.isBusy
                         else {
-                            throw CoreManagerError.launchFailed("请先停止当前代理再切换版本。")
+                            throw CoreManagerError.launchFailed(L10n.tr("请先停止当前代理再切换版本。"))
                         }
                         try coreManager.selectTrustedRelease(release)
                     } catch {
@@ -292,36 +294,36 @@ extension SettingsView {
         case .checking:
             HStack(spacing: 12) {
                 ProgressView().controlSize(.small)
-                Text("正在检查本地内核…").foregroundStyle(.secondary)
+                Text(L10n.tr("正在检查本地内核…")).foregroundStyle(.secondary)
             }
         case .notInstalled:
             coreStatusRow(
                 symbol: "arrow.down.circle.fill",
                 color: AppPalette.accent,
-                title: "内核尚未安装",
-                detail: "下载后即可启动代理"
+                title: L10n.tr("内核尚未安装"),
+                detail: L10n.tr("下载后即可启动代理")
             ) {
-                Button("下载并安装") { Task { await model.installCore() } }
+                Button(L10n.tr("下载并安装")) { Task { await model.installCore() } }
                     .shellButtonStyle(prominent: true)
             }
         case let .installing(phase):
             HStack(spacing: 12) {
                 ProgressView().controlSize(.small)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("正在安装内核 \(coreManager.targetRelease.version)")
+                    Text(L10n.tr("正在安装内核 \(coreManager.targetRelease.version)"))
                         .font(.callout.weight(.medium))
                     Text(phase).font(.caption).foregroundStyle(.secondary)
                 }
             }
         case let .installed(manifest):
             DisclosureGroup {
-                Text("提交 \(String(manifest.coreCommit.prefix(7))) · Bun \(manifest.bunVersion)")
+                Text(L10n.tr("提交 \(String(manifest.coreCommit.prefix(7))) · Bun \(manifest.bunVersion)"))
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
                     .padding(.top, 6)
             } label: {
-                Label("已安装 \(manifest.coreVersion)", systemImage: "checkmark.seal.fill")
+                Label(L10n.tr("已安装 \(manifest.coreVersion)"), systemImage: "checkmark.seal.fill")
                     .font(.callout.weight(.medium))
                     .foregroundStyle(AppPalette.success)
             }
@@ -329,20 +331,20 @@ extension SettingsView {
             coreStatusRow(
                 symbol: "arrow.triangle.2.circlepath.circle.fill",
                 color: AppPalette.warning,
-                title: "已选择 \(target.version)",
-                detail: "已安装 \(installed.coreVersion)，需安装所选版本。"
+                title: L10n.tr("已选择 \(target.version)"),
+                detail: L10n.tr("已安装 \(installed.coreVersion)，需安装所选版本。")
             ) {
-                Button("安装所选版本") { Task { await model.installCore() } }
+                Button(L10n.tr("安装所选版本")) { Task { await model.installCore() } }
                     .shellButtonStyle(prominent: true)
             }
         case let .failed(message):
             coreStatusRow(
                 symbol: "exclamationmark.triangle.fill",
                 color: AppPalette.danger,
-                title: "内核安装失败",
+                title: L10n.tr("内核安装失败"),
                 detail: message
             ) {
-                Button("重试") { Task { await model.installCore() } }
+                Button(L10n.tr("重试")) { Task { await model.installCore() } }
                     .shellButtonStyle(prominent: true)
             }
         }
@@ -372,7 +374,7 @@ extension SettingsView {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("客户端版本")
+                    Text(L10n.tr("客户端版本"))
                         .font(.callout.weight(.medium))
                     Text(clientVersionDetail)
                         .font(.caption)
@@ -383,7 +385,7 @@ extension SettingsView {
                     ProgressView().controlSize(.small)
                 }
                 if let release = appUpdateManager.availableRelease {
-                    Button("下载 \(release.version)") {
+                    Button(L10n.tr("下载 \(release.version)")) {
                         Task {
                             await appUpdateManager.downloadAvailableUpdate()
                             if appUpdateManager.downloadedUpdateURL != nil {
@@ -394,7 +396,7 @@ extension SettingsView {
                     .shellButtonStyle(prominent: true)
                     .disabled(appUpdateManager.isBusy)
                 } else {
-                    Button("检查更新") {
+                    Button(L10n.tr("检查更新")) {
                         Task { await appUpdateManager.checkForUpdatesPresentingResult() }
                     }
                     .disabled(appUpdateManager.isBusy)
@@ -403,13 +405,13 @@ extension SettingsView {
 
             if let downloaded = appUpdateManager.downloadedUpdateURL {
                 HStack {
-                    Label("已下载 \(downloaded.lastPathComponent)", systemImage: "shippingbox.fill")
+                    Label(L10n.tr("已下载 \(downloaded.lastPathComponent)"), systemImage: "shippingbox.fill")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer()
-                    Button("打开") { appUpdateManager.openDownloadedUpdate() }
+                    Button(L10n.tr("打开")) { appUpdateManager.openDownloadedUpdate() }
                 }
             }
         }
@@ -418,12 +420,12 @@ extension SettingsView {
     private var clientVersionDetail: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0.0"
         if let release = appUpdateManager.availableRelease {
-            return "当前 \(version) · 可更新到 \(release.version)"
+            return L10n.tr("当前 \(version) · 可更新到 \(release.version)")
         }
         if let checked = appUpdateManager.lastCheckedAt {
-            return "当前 \(version) · 上次检查 \(checked.formatted(date: .abbreviated, time: .shortened))"
+            return L10n.tr("当前 \(version) · 上次检查 \(checked.formatted(date: .abbreviated, time: .shortened))")
         }
-        return "当前 \(version) · 尚未检查更新"
+        return L10n.tr("当前 \(version) · 尚未检查更新")
     }
 
     func sectionHeader(_ title: String, symbol: String) -> some View {

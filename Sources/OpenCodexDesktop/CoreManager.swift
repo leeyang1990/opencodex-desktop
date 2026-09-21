@@ -40,8 +40,8 @@ enum CoreVersionMode: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .build: "构建版本"
-        case .custom: "自选版本"
+        case .build: L10n.tr("构建版本")
+        case .custom: L10n.tr("自选版本")
         }
     }
 }
@@ -395,38 +395,38 @@ enum CoreManagerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notInstalled:
-            "尚未安装兼容的 OpenCodex 内核"
+            L10n.tr("尚未安装兼容的 OpenCodex 内核")
         case .unsupportedArchitecture:
-            "当前 Mac 架构不受支持"
+            L10n.tr("当前 Mac 架构不受支持")
         case let .downloadFailed(message):
-            "内核下载失败：\(message)"
+            L10n.tr("内核下载失败：\(message)")
         case let .insecureDownload(name):
-            "\(name) 下载未保持 HTTPS，安装已终止"
+            L10n.tr("\(name) 下载未保持 HTTPS，安装已终止")
         case let .artifactTooLarge(name):
-            "\(name) 超过允许的下载大小，安装已终止"
+            L10n.tr("\(name) 超过允许的下载大小，安装已终止")
         case let .checksumMismatch(name):
-            "\(name) 校验失败，安装已终止"
+            L10n.tr("\(name) 校验失败，安装已终止")
         case let .commandFailed(message):
             message
         case .invalidInstallation:
-            "内核安装不完整，请重新安装"
+            L10n.tr("内核安装不完整，请重新安装")
         case let .untrustedVersion(version):
-            "Core \(version) 不在客户端的可信版本目录中"
+            L10n.tr("Core \(version) 不在客户端的可信版本目录中")
         case let .launchFailed(message):
-            message.isEmpty ? "OpenCodex 内核启动失败" : message
+            message.isEmpty ? L10n.tr("OpenCodex 内核启动失败") : message
         case let .stoppedUnexpectedly(message):
-            message.isEmpty ? "OpenCodex 内核意外停止" : message
+            message.isEmpty ? L10n.tr("OpenCodex 内核意外停止") : message
         case let .restoreFailed(message):
-            message.isEmpty ? "还原 Codex 路由失败，请查看内核日志" : message
+            message.isEmpty ? L10n.tr("还原 Codex 路由失败，请查看内核日志") : message
         case .restoreTimedOut:
-            "还原 Codex 路由超时，Codex 配置可能仍指向代理"
+            L10n.tr("还原 Codex 路由超时，Codex 配置可能仍指向代理")
         case .requiresTerminationConfirmation:
             CoreManagerError.restoreNotConfirmedMessage
         }
     }
 
     nonisolated fileprivate static let restoreNotConfirmedMessage =
-        "内核未确认已还原 Codex 配置，请重试“还原 Codex 路由”后再退出，或查看内核日志。"
+        L10n.tr("内核未确认已还原 Codex 配置，请重试“还原 Codex 路由”后再退出，或查看内核日志。")
 }
 
 /// A bounded, non-blocking invocation of the managed Core CLI.
@@ -669,20 +669,20 @@ actor CoreInstaller {
         try fileManager.createDirectory(at: binRoot, withIntermediateDirectories: true)
         defer { try? fileManager.removeItem(at: stagingRoot) }
 
-        await phase("正在下载 OpenCodex Core \(release.version)…")
+        await phase(L10n.tr("正在下载 OpenCodex Core \(release.version)…"))
         let packageArchive = stagingRoot.appendingPathComponent("opencodex.tgz")
         try await download(release.package, named: "OpenCodex Core", to: packageArchive)
 
-        await phase("正在下载锁定依赖清单…")
+        await phase(L10n.tr("正在下载锁定依赖清单…"))
         let lockfile = stagingRoot.appendingPathComponent("bun.lock")
         try await download(release.lockfile, named: "bun.lock", to: lockfile)
 
-        await phase("正在下载 Bun \(release.bunVersion)…")
+        await phase(L10n.tr("正在下载 Bun \(release.bunVersion)…"))
         let bunArtifact = release.bunArtifact
         let bunArchive = stagingRoot.appendingPathComponent("bun.zip")
         try await download(bunArtifact.archive, named: "Bun", to: bunArchive)
 
-        await phase("正在解压内核…")
+        await phase(L10n.tr("正在解压内核…"))
         try run(
             executable: "/usr/bin/tar",
             arguments: ["-xzf", packageArchive.path, "-C", packageRoot.path, "--strip-components", "1"],
@@ -713,7 +713,7 @@ actor CoreInstaller {
             logURL: stagingRoot.appendingPathComponent("codesign-bun.log")
         )
 
-        await phase("正在安装内核依赖…")
+        await phase(L10n.tr("正在安装内核依赖…"))
         try run(
             executable: installedBun.path,
             arguments: ["install", "--production", "--frozen-lockfile"],
@@ -725,7 +725,7 @@ actor CoreInstaller {
             logURL: stagingRoot.appendingPathComponent("install-dependencies.log")
         )
 
-        await phase("正在验证本机组件…")
+        await phase(L10n.tr("正在验证本机组件…"))
         try signNativeModules(in: packageRoot, logRoot: stagingRoot)
         pruneDevelopmentPackages(in: packageRoot)
 
@@ -752,7 +752,7 @@ actor CoreInstaller {
             throw CoreManagerError.invalidInstallation
         }
 
-        await phase("正在完成安装…")
+        await phase(L10n.tr("正在完成安装…"))
         try publish(payloadRoot: payloadRoot, version: release.version)
         return manifest
     }
@@ -842,7 +842,7 @@ actor CoreInstaller {
         }
         guard process.terminationStatus == 0 else {
             let detail = Self.logTail(from: logURL)
-            throw CoreManagerError.commandFailed(detail.isEmpty ? "内核安装命令执行失败" : detail)
+            throw CoreManagerError.commandFailed(detail.isEmpty ? L10n.tr("内核安装命令执行失败") : detail)
         }
     }
 
@@ -998,7 +998,7 @@ final class CoreManager: ObservableObject {
         } catch is CancellationError {
             // A dismissed page must not replace a usable cached list with an error.
         } catch {
-            versionCatalogError = "刷新失败，保留已有版本：\(error.localizedDescription)"
+            versionCatalogError = L10n.tr("刷新失败，保留已有版本：\(error.localizedDescription)")
         }
     }
 
@@ -1019,7 +1019,7 @@ final class CoreManager: ObservableObject {
     func setPreferredCodexRuntimePath(_ path: String?) throws {
         if let path {
             guard let normalized = CodexRuntimePreference.normalized(path) else {
-                throw CoreManagerError.launchFailed("所选 Codex CLI 不再可执行，请重新扫描。")
+                throw CoreManagerError.launchFailed(L10n.tr("所选 Codex CLI 不再可执行，请重新扫描。"))
             }
             preferredCodexRuntimePath = normalized
             defaults.set(normalized, forKey: CodexRuntimePreference.defaultsKey)
@@ -1095,7 +1095,7 @@ final class CoreManager: ObservableObject {
 
     func installTargetCore() async throws {
         let targetRelease = targetRelease
-        installationState = .installing("正在准备安装…")
+        installationState = .installing(L10n.tr("正在准备安装…"))
         do {
             let manager = self
             let manifest = try await installer.install(release: targetRelease) { phase in
@@ -1194,7 +1194,7 @@ final class CoreManager: ObservableObject {
             }
         }
         guard !process.isRunning else {
-            lastExitMessage = "无法停止 OpenCodex 内核进程（PID \(process.processIdentifier)）"
+            lastExitMessage = L10n.tr("无法停止 OpenCodex 内核进程（PID \(process.processIdentifier)）")
             ownsRunningProcess = true
             stopRequested = false
             return
@@ -1380,15 +1380,15 @@ final class CoreManager: ObservableObject {
         if !stopRequested {
             lastExitMessage = Self.logTail(from: CoreInstallationPaths.logFile)
             if lastExitMessage?.isEmpty != false {
-                lastExitMessage = "OpenCodex 内核已退出（状态码 \(terminatedProcess.terminationStatus)）"
+                lastExitMessage = L10n.tr("OpenCodex 内核已退出（状态码 \(terminatedProcess.terminationStatus)）")
             }
             DesktopEventStore.shared.append(
                 .coreCrashed,
-                detail: "退出状态 \(terminatedProcess.terminationStatus)"
+                detail: L10n.tr("退出状态 \(terminatedProcess.terminationStatus)")
             )
             NativeNotificationManager.shared.send(
-                title: "OpenCodex Core 意外退出",
-                body: "打开诊断与修复查看本机状态。"
+                title: L10n.tr("OpenCodex Core 意外退出"),
+                body: L10n.tr("打开诊断与修复查看本机状态。")
             )
         }
         process = nil

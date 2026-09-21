@@ -16,10 +16,10 @@ struct RootView: View {
         .tint(AppPalette.accent)
         .translucentWindowBacking()
         .task { await model.bootstrap() }
-        .alert("出现问题", isPresented: errorPresented) {
-            Button("好") { model.errorMessage = nil }
+        .alert(L10n.tr("出现问题"), isPresented: errorPresented) {
+            Button(L10n.tr("好")) { model.errorMessage = nil }
         } message: {
-            Text(model.errorMessage ?? "未知错误")
+            Text(model.errorMessage ?? L10n.tr("未知错误"))
         }
         .sheet(isPresented: $model.showsFirstLaunchEnvironmentCheck) {
             FirstLaunchEnvironmentCheckView()
@@ -95,25 +95,25 @@ struct RootView: View {
                 Button {
                     navigation.show(.settings)
                 } label: {
-                    Label("可更新", systemImage: "arrow.down.circle.fill")
+                    Label(L10n.tr("可更新"), systemImage: "arrow.down.circle.fill")
                         .font(.caption.weight(.medium))
                         .labelStyle(.titleAndIcon)
                 }
                 .shellButtonStyle()
                 .tint(AppPalette.accent)
-                .help("有可用的客户端更新")
+                .help(L10n.tr("有可用的客户端更新"))
             }
 
             connectionPill
             Button {
                 model.openConsole()
             } label: {
-                Label("控制台", systemImage: "arrow.up.right.square")
+                Label(L10n.tr("控制台"), systemImage: "arrow.up.right.square")
                     .font(.caption.weight(.medium))
             }
             .shellButtonStyle()
             .disabled(!model.isOnline)
-            .help("在浏览器中打开 OpenCodex 完整设置")
+            .help(L10n.tr("在浏览器中打开 OpenCodex 完整设置"))
         }
     }
 
@@ -123,7 +123,7 @@ struct RootView: View {
         } label: {
             HStack(spacing: 7) {
                 StatusDot(state: model.connectionState, size: 7)
-                Text(model.isOnline ? "已连接" : model.connectionState.label)
+                Text(model.isOnline ? L10n.tr("已连接") : model.connectionState.label)
                     .font(.caption.weight(.medium))
             }
             .foregroundStyle(model.isOnline ? Color.primary : Color.secondary)
@@ -132,7 +132,7 @@ struct RootView: View {
         .padding(.horizontal, 11)
         .padding(.vertical, 6)
         .glassControl(interactive: true)
-        .help("点击刷新状态 · \(model.baseAddress)")
+        .help(L10n.tr("点击刷新状态 · \(model.baseAddress)"))
         .disabled(model.isRefreshing)
     }
 

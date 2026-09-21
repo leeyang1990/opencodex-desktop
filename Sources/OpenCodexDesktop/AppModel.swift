@@ -229,10 +229,10 @@ final class AppModel: NSObject, ObservableObject {
                 let wasOnline = self.isOnline
                 await self.refresh(showSpinner: false)
                 if wasOnline, !self.isOnline {
-                    self.eventStore.append(.coreCrashed, detail: "健康检查未响应")
+                    self.eventStore.append(.coreCrashed, detail: L10n.tr("健康检查未响应"))
                     self.notificationManager.send(
-                        title: "OpenCodex Core 已离线",
-                        body: "打开诊断与修复查看本机状态。"
+                        title: L10n.tr("OpenCodex Core 已离线"),
+                        body: L10n.tr("打开诊断与修复查看本机状态。")
                     )
                 } else if !wasOnline, self.isOnline {
                     self.eventStore.append(.serviceRecovered)
@@ -257,10 +257,10 @@ final class AppModel: NSObject, ObservableObject {
         await refresh(showSpinner: false)
         runEnvironmentCheck()
         if !isOnline {
-            eventStore.append(.wakeCheckFailed, detail: "Core 管理接口未响应")
+            eventStore.append(.wakeCheckFailed, detail: L10n.tr("Core 管理接口未响应"))
             notificationManager.send(
-                title: "唤醒后 Core 未恢复",
-                body: "打开诊断与修复检查进程、端口和运行时。"
+                title: L10n.tr("唤醒后 Core 未恢复"),
+                body: L10n.tr("打开诊断与修复检查进程、端口和运行时。")
             )
         }
     }

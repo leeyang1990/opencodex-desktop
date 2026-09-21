@@ -198,12 +198,11 @@ enum DiagnosticBundleBuilder {
     }
 
     static var readme: String {
-        """
-        OpenCodex Desktop 脱敏诊断包
-
-        diagnostics.json 只包含客户端版本、macOS 环境、本机 Core 状态、端口、脱敏事件和检查结论。
-        为保护隐私，诊断包不包含 API Key、管理令牌内容、账号标识、请求正文或 Core 原始日志。
-        """
+        [
+            L10n.tr("OpenCodex Desktop 脱敏诊断包"), "",
+            L10n.tr("diagnostics.json 只包含客户端版本、macOS 环境、本机 Core 状态、端口、脱敏事件和检查结论。"),
+            L10n.tr("为保护隐私，诊断包不包含 API Key、管理令牌内容、账号标识、请求正文或 Core 原始日志。"),
+        ].joined(separator: "\n")
     }
 
     private static func stateName(_ state: EnvironmentCheckState) -> String {
@@ -258,7 +257,7 @@ enum DiagnosticExportError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case let .archiveFailed(detail):
-            detail.isEmpty ? "无法生成脱敏诊断包。" : "无法生成脱敏诊断包：\(detail)"
+            detail.isEmpty ? L10n.tr("无法生成脱敏诊断包。") : L10n.tr("无法生成脱敏诊断包：\(detail)")
         }
     }
 }

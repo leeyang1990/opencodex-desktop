@@ -49,14 +49,14 @@ extension AppModel {
             try await self.client.addChannelKey(name: channel.name, key: key, label: label)
         } completion: {
             self.pendingChannelKeys.removeValue(forKey: channel.name)
-            self.operationMessage = "已为 \(channel.name) 添加 API Key"
+            self.operationMessage = L10n.tr("已为 \(channel.name) 添加 API Key")
             self.eventStore.append(.channelChanged, detail: channel.name)
         }
     }
 
     func addChannel(draft: ChannelDraft, apiKey: String) async -> ChannelCreationResult {
-        guard isOnline else { return .failed("Core 未连接，请启动代理后重试。") }
-        guard !isUpdatingChannels else { return .failed("其他渠道操作正在保存，请稍后重试。") }
+        guard isOnline else { return .failed(L10n.tr("Core 未连接，请启动代理后重试。")) }
+        guard !isUpdatingChannels else { return .failed(L10n.tr("其他渠道操作正在保存，请稍后重试。")) }
         isUpdatingChannels = true
         defer { isUpdatingChannels = false }
         let client = self.client
@@ -73,7 +73,7 @@ extension AppModel {
             eventStore.append(.channelChanged)
         }
         switch result {
-        case .saved: operationMessage = "渠道已添加"
+        case .saved: operationMessage = L10n.tr("渠道已添加")
         case .partial(let message): channelErrorMessage = message
         case .failed: break  // The sheet owns validation and save errors.
         }
@@ -84,7 +84,7 @@ extension AppModel {
         await performChannelChange {
             try await self.client.updateChannel(name: channel.name, patch: ChannelPatch(disabled: !enabled))
         } completion: {
-            self.operationMessage = enabled ? "已启用 \(channel.name)" : "已停用 \(channel.name)"
+            self.operationMessage = enabled ? L10n.tr("已启用 \(channel.name)") : L10n.tr("已停用 \(channel.name)")
         }
     }
 
@@ -95,7 +95,7 @@ extension AppModel {
             try await self.client.setDefaultChannel(name: channel.name)
         } completion: {
             self.defaultChannelName = channel.name
-            self.operationMessage = "已将 \(channel.name) 设为默认渠道"
+            self.operationMessage = L10n.tr("已将 \(channel.name) 设为默认渠道")
         }
     }
 

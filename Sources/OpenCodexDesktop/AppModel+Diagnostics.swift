@@ -25,7 +25,7 @@ extension AppModel {
             if isOnline || coreManager.ownsRunningProcess {
                 await restartService()
             } else {
-                operationMessage = "已选择 Codex \(candidate.version ?? "")，启动 Core 后生效"
+                operationMessage = L10n.tr("已选择 Codex \(candidate.version ?? "")，启动 Core 后生效")
             }
             await scanCodexRuntimes()
             runEnvironmentCheck()
@@ -60,7 +60,7 @@ extension AppModel {
             defer { try? FileManager.default.removeItem(at: archive.deletingLastPathComponent()) }
 
             let panel = NSSavePanel()
-            panel.title = "导出脱敏诊断包"
+            panel.title = L10n.tr("导出脱敏诊断包")
             panel.nameFieldStringValue = "OpenCodex-Diagnostics-\(diagnosticTimestamp()).zip"
             panel.canCreateDirectories = true
             guard panel.runModal() == .OK, let destination = panel.url else { return }
@@ -69,7 +69,7 @@ extension AppModel {
             }
             try FileManager.default.copyItem(at: archive, to: destination)
             NSWorkspace.shared.activateFileViewerSelecting([destination])
-            operationMessage = "脱敏诊断包已导出"
+            operationMessage = L10n.tr("脱敏诊断包已导出")
         } catch {
             errorMessage = error.localizedDescription
         }

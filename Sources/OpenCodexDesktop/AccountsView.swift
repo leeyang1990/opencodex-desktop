@@ -9,7 +9,7 @@ struct AccountsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                PageHeader(title: "账号")
+                PageHeader(title: L10n.tr("账号"))
                     .padding(.bottom, 2)
 
                 if !model.isOnline {
@@ -34,7 +34,7 @@ struct AccountsView: View {
     private var poolCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
-                Label("账号池", systemImage: "person.2")
+                Label(L10n.tr("账号池"), systemImage: "person.2")
                     .font(.title3.weight(.semibold))
                 Text("\(model.codexAccounts.count)")
                     .font(.caption.monospacedDigit())
@@ -43,7 +43,7 @@ struct AccountsView: View {
                 if model.isLoadingAccounts || model.isUpdatingAccounts {
                     ProgressView().controlSize(.small)
                 }
-                Button("添加账号") { Task { await model.addCodexAccount() } }
+                Button(L10n.tr("添加账号")) { Task { await model.addCodexAccount() } }
                     .shellButtonStyle(prominent: true)
                     .disabled(model.isStartingLogin || model.loginFlowID != nil)
                 Button {
@@ -52,7 +52,7 @@ struct AccountsView: View {
                     Image(systemName: "arrow.clockwise")
                 }
                 .disabled(model.isLoadingAccounts)
-                .help("重新读取账号")
+                .help(L10n.tr("重新读取账号"))
             }
 
             if let message = model.accountErrorMessage {
@@ -62,7 +62,7 @@ struct AccountsView: View {
             }
 
             if model.codexAccounts.isEmpty {
-                Text("暂无账号，添加后在浏览器中完成授权。")
+                Text(L10n.tr("暂无账号，添加后在浏览器中完成授权。"))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 8)
@@ -94,18 +94,18 @@ struct AccountsView: View {
                     Text(account.displayName)
                         .font(.system(size: 13, weight: .medium))
                     if account.isMain == true {
-                        Pill(text: "本机登录", color: .secondary)
+                        Pill(text: L10n.tr("本机登录"), color: .secondary)
                     }
                     if let plan = account.plan {
                         Pill(text: plan.uppercased(), color: AppPalette.accent)
                     }
                     if account.isPaused {
-                        Pill(text: "已暂停", color: AppPalette.warning, symbol: "pause.fill")
+                        Pill(text: L10n.tr("已暂停"), color: AppPalette.warning, symbol: "pause.fill")
                     }
                     if account.needsReauth == true {
-                        Pill(text: "需重新登录", color: AppPalette.danger, symbol: "exclamationmark.triangle.fill")
+                        Pill(text: L10n.tr("需重新登录"), color: AppPalette.danger, symbol: "exclamationmark.triangle.fill")
                     } else if !account.isHealthy {
-                        Pill(text: account.healthLabel ?? "异常", color: AppPalette.warning)
+                        Pill(text: account.healthLabel ?? L10n.tr("异常"), color: AppPalette.warning)
                     }
                 }
                 Text(quotaDetail(account))
@@ -120,9 +120,9 @@ struct AccountsView: View {
             }
 
             Menu {
-                Button("设为当前账号") { Task { await model.selectCodexAccount(account) } }
+                Button(L10n.tr("设为当前账号")) { Task { await model.selectCodexAccount(account) } }
                     .disabled(isActive || account.isPaused)
-                Button(account.isPaused ? "恢复使用" : "暂停使用") {
+                Button(account.isPaused ? L10n.tr("恢复使用") : L10n.tr("暂停使用")) {
                     Task { await model.setCodexAccountPaused(account, paused: !account.isPaused) }
                 }
             } label: {
@@ -141,9 +141,9 @@ struct AccountsView: View {
     private func quotaDetail(_ account: CodexAccount) -> String {
         var parts: [String] = []
         if account.quota?.weeklyResetAt != nil, let percent = account.quota?.weeklyPercent {
-            parts.append(String(format: "周额度 %.0f%%", percent))
+            parts.append(String(format: L10n.tr("周额度 %.0f%%"), percent))
         } else if account.quota == nil {
-            parts.append("无额度数据")
+            parts.append(L10n.tr("无额度数据"))
         }
         if let summary = account.healthSummary, account.healthLabel != nil { parts.append(summary) }
         return parts.isEmpty ? "—" : parts.joined(separator: " · ")
@@ -170,11 +170,11 @@ struct AccountsView: View {
 
     private func schedulingCard(_ scheduling: CodexAccountScheduling) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label("调度", systemImage: "arrow.triangle.branch")
+            Label(L10n.tr("调度"), systemImage: "arrow.triangle.branch")
                 .font(.title3.weight(.semibold))
 
             settingRow(
-                title: "账号使用方式",
+                title: L10n.tr("账号使用方式"),
                 detail: schedulingHelp(scheduling.accountPoolStrategy ?? "quota")
             ) {
                 Picker(
@@ -195,7 +195,7 @@ struct AccountsView: View {
             }
 
             if scheduling.pinned == true {
-                Label("账号已固定，不会自动切换。", systemImage: "pin.fill")
+                Label(L10n.tr("账号已固定，不会自动切换。"), systemImage: "pin.fill")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -207,9 +207,9 @@ struct AccountsView: View {
 
     private func schedulingHelp(_ strategy: String) -> String {
         switch strategy {
-        case "round-robin": "依次使用可用账号"
-        case "fill-first": "当前账号用尽后切换"
-        default: "优先使用额度充足的账号"
+        case "round-robin": L10n.tr("依次使用可用账号")
+        case "fill-first": L10n.tr("当前账号用尽后切换")
+        default: L10n.tr("优先使用额度充足的账号")
         }
     }
 
@@ -217,14 +217,14 @@ struct AccountsView: View {
         HStack(spacing: 12) {
             ProgressView().controlSize(.small)
             VStack(alignment: .leading, spacing: 2) {
-                Text("正在添加账号")
+                Text(L10n.tr("正在添加账号"))
                     .font(.callout.weight(.medium))
-                Text(model.loginMessage ?? "请在浏览器中完成授权…")
+                Text(model.loginMessage ?? L10n.tr("请在浏览器中完成授权…"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button("取消") { Task { await model.cancelCodexLogin() } }
+            Button(L10n.tr("取消")) { Task { await model.cancelCodexLogin() } }
         }
         .cardStyle()
     }
@@ -234,10 +234,10 @@ struct AccountsView: View {
             Image(systemName: "bolt.slash")
                 .font(.system(size: 26, weight: .medium))
                 .foregroundStyle(.secondary)
-            Text("启动代理后管理账号")
+            Text(L10n.tr("启动代理后管理账号"))
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            Button("启动代理") { Task { await model.startService() } }
+            Button(L10n.tr("启动代理")) { Task { await model.startService() } }
                 .shellButtonStyle(prominent: true)
                 .disabled(model.isRefreshing)
         }

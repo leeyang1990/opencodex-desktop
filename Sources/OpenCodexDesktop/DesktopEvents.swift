@@ -22,23 +22,23 @@ enum DesktopEventKind: String, Codable, CaseIterable {
 
     var title: String {
         switch self {
-        case .appStarted: "Desktop 已启动"
-        case .appStopped: "Desktop 已退出"
-        case .coreStarted: "Core 已启动"
-        case .coreStopped: "Core 已停止"
-        case .coreCrashed: "Core 意外退出"
-        case .serviceRecovered: "Core 已恢复"
-        case .systemSleep: "Mac 进入睡眠"
-        case .systemWake: "Mac 已唤醒"
-        case .wakeCheckFailed: "唤醒检查失败"
-        case .runtimeChanged: "Codex Runtime 已切换"
-        case .coreInstalled: "Core 已安装"
-        case .coreRollback: "Core 已回滚"
-        case .chatGPTRestarted: "ChatGPT 已重启"
-        case .codexRoutingRestored: "Codex 路由已还原"
-        case .codexRoutingRestoreFailed: "Codex 路由还原失败"
-        case .codexAccountAdded: "已添加 Codex 账号"
-        case .channelChanged: "API 渠道已变更"
+        case .appStarted: L10n.tr("Desktop 已启动")
+        case .appStopped: L10n.tr("Desktop 已退出")
+        case .coreStarted: L10n.tr("Core 已启动")
+        case .coreStopped: L10n.tr("Core 已停止")
+        case .coreCrashed: L10n.tr("Core 意外退出")
+        case .serviceRecovered: L10n.tr("Core 已恢复")
+        case .systemSleep: L10n.tr("Mac 进入睡眠")
+        case .systemWake: L10n.tr("Mac 已唤醒")
+        case .wakeCheckFailed: L10n.tr("唤醒检查失败")
+        case .runtimeChanged: L10n.tr("Codex Runtime 已切换")
+        case .coreInstalled: L10n.tr("Core 已安装")
+        case .coreRollback: L10n.tr("Core 已回滚")
+        case .chatGPTRestarted: L10n.tr("ChatGPT 已重启")
+        case .codexRoutingRestored: L10n.tr("Codex 路由已还原")
+        case .codexRoutingRestoreFailed: L10n.tr("Codex 路由还原失败")
+        case .codexAccountAdded: L10n.tr("已添加 Codex 账号")
+        case .channelChanged: L10n.tr("API 渠道已变更")
         }
     }
 

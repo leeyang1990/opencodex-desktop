@@ -68,6 +68,8 @@ OpenCodex Desktop 是独立开发的社区 macOS 客户端，不是 OpenCodex �
 
 要求 macOS 14 或更高版本，目前仅提供 Apple Silicon（arm64）版本。
 
+界面支持中英文，自动跟随 macOS 首选语言（也支持系统中的单个 App 语言设置）；其他语言回退到英文。更改语言后重新打开 App 即可。
+
 从 [GitHub Releases](https://github.com/leeyang1990/opencodex-desktop/releases/latest) 下载 DMG，拖入“应用程序”即可；ZIP 可用于便携运行。发布包采用免费的 ad-hoc 签名，未经 Apple 公证，首次启动时可能需要右键 App 并选择“打开”。建议同时核对 Release 附件中的 SHA-256。
 
 ## 行为边界

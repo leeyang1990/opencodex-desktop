@@ -145,7 +145,7 @@ final class ChannelCreatorTests: XCTestCase {
         let result = await creator.save(draft, key: "fixture")
         XCTAssertFalse(result.didCreate)
         guard case .failed(let message) = result else { return XCTFail("Expected duplicate failure") }
-        XCTAssertTrue(message.contains("同名"))
+        XCTAssertEqual(message, L10n.tr("同名渠道已存在，请换一个名称。"))
     }
 
     func testOfflineNameCheckDoesNotCreateBlindly() async {
@@ -168,7 +168,7 @@ final class ChannelCreatorTests: XCTestCase {
         let result = await creator.save(draft, key: "fixture")
         XCTAssertTrue(result.didCreate)
         guard case .partial(let message) = result else { return XCTFail("Expected partial completion") }
-        XCTAssertTrue(message.contains("密钥"))
+        XCTAssertEqual(message, L10n.tr("渠道已创建，但密钥写入未确认，未切换默认渠道。请关闭后检查该渠道的 Key 状态，必要时点「添加 Key」。"))
         XCTAssertFalse(message.contains("sensitive-fixture"))
     }
 

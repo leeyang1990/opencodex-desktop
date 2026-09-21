@@ -18,11 +18,11 @@ enum SidebarDestination: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .home: "概览"
-        case .accounts: "账号"
-        case .channels: "渠道"
-        case .subagents: "子代理"
-        case .settings: "设置"
+        case .home: L10n.tr("概览")
+        case .accounts: L10n.tr("账号")
+        case .channels: L10n.tr("渠道")
+        case .subagents: L10n.tr("子代理")
+        case .settings: L10n.tr("设置")
         }
     }
 
@@ -45,10 +45,10 @@ enum ConnectionState: Equatable {
 
     var label: String {
         switch self {
-        case .checking: "正在连接"
-        case .online: "服务正常"
-        case .offline: "服务未运行"
-        case .unauthorized: "需要授权"
+        case .checking: L10n.tr("正在连接")
+        case .online: L10n.tr("服务正常")
+        case .offline: L10n.tr("服务未运行")
+        case .unauthorized: L10n.tr("需要授权")
         }
     }
 
@@ -212,7 +212,7 @@ struct UsageDay: Decodable, Identifiable, Equatable {
 
     private static let label: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.locale = L10n.locale
         formatter.dateFormat = "M/d"
         return formatter
     }()
@@ -280,10 +280,10 @@ struct CodexAccountScheduling: Decodable, Equatable {
 
     static func strategyTitle(_ raw: String?) -> String {
         switch raw {
-        case "quota": "按额度"
-        case "round-robin": "轮询"
-        case "fill-first": "用尽再换"
-        default: raw ?? "默认"
+        case "quota": L10n.tr("按额度")
+        case "round-robin": L10n.tr("轮询")
+        case "fill-first": L10n.tr("用尽再换")
+        default: raw ?? L10n.tr("默认")
         }
     }
 }

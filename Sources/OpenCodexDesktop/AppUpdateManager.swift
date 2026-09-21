@@ -61,33 +61,33 @@ enum AppUpdateError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .invalidCurrentVersion:
-            "无法识别当前客户端版本。"
+            L10n.tr("无法识别当前客户端版本。")
         case .invalidResponse:
-            "GitHub 返回了无效响应。"
+            L10n.tr("GitHub 返回了无效响应。")
         case let .httpStatus(status):
-            "GitHub 请求失败（HTTP \(status)）。"
+            L10n.tr("GitHub 请求失败（HTTP \(status)）。")
         case .responseTooLarge:
-            "GitHub Release 信息超出预期大小。"
+            L10n.tr("GitHub Release 信息超出预期大小。")
         case .invalidRelease:
-            "GitHub Release 的版本信息无效。"
+            L10n.tr("GitHub Release 的版本信息无效。")
         case .unsupportedRelease:
-            "该 Release 不是可安装的正式版本。"
+            L10n.tr("该 Release 不是可安装的正式版本。")
         case .missingAssets:
-            "Release 缺少 Apple Silicon DMG 或 SHA-256 校验文件。"
+            L10n.tr("Release 缺少 Apple Silicon DMG 或 SHA-256 校验文件。")
         case .untrustedURL:
-            "Release 包含不受信任的下载地址。"
+            L10n.tr("Release 包含不受信任的下载地址。")
         case .invalidChecksum:
-            "Release 的 SHA-256 校验文件格式无效。"
+            L10n.tr("Release 的 SHA-256 校验文件格式无效。")
         case .downloadTooLarge:
-            "更新文件超出允许的大小。"
+            L10n.tr("更新文件超出允许的大小。")
         case .downloadedFileSizeMismatch:
-            "更新文件大小与 GitHub Release 记录不一致。"
+            L10n.tr("更新文件大小与 GitHub Release 记录不一致。")
         case .checksumMismatch:
-            "更新文件校验失败，已停止安装。"
+            L10n.tr("更新文件校验失败，已停止安装。")
         case .noAvailableUpdate:
-            "当前没有可下载的客户端更新。"
+            L10n.tr("当前没有可下载的客户端更新。")
         case .cannotOpenDiskImage:
-            "无法打开更新安装镜像。"
+            L10n.tr("无法打开更新安装镜像。")
         }
     }
 }
@@ -320,7 +320,7 @@ final class AppUpdateManager: ObservableObject {
         guard !isBusy else { return }
         isChecking = true
         lastOperationFailed = false
-        statusMessage = "正在检查 GitHub Release…"
+        statusMessage = L10n.tr("正在检查 GitHub Release…")
         defer { isChecking = false }
 
         do {
@@ -339,15 +339,15 @@ final class AppUpdateManager: ObservableObject {
             availableRelease = release
             if let release {
                 defaults.removeObject(forKey: AppUpdatePreference.lastCheckDateKey)
-                statusMessage = "发现新版本 \(release.version)"
+                statusMessage = L10n.tr("发现新版本 \(release.version)")
             } else {
                 defaults.set(checkedAt, forKey: AppUpdatePreference.lastCheckDateKey)
                 downloadedUpdateURL = nil
-                statusMessage = "当前已是最新版本 \(currentVersion)"
+                statusMessage = L10n.tr("当前已是最新版本 \(currentVersion)")
             }
         } catch {
             lastOperationFailed = true
-            statusMessage = "检查更新失败：\(error.localizedDescription)"
+            statusMessage = L10n.tr("检查更新失败：\(error.localizedDescription)")
         }
     }
 
@@ -357,11 +357,11 @@ final class AppUpdateManager: ObservableObject {
 
         let alert = NSAlert()
         if let release = availableRelease, !lastOperationFailed {
-            alert.messageText = "发现 OpenCodex Desktop \(release.version)"
-            alert.informativeText = "将从本仓库的 GitHub Release 下载 Apple Silicon DMG，并在打开前验证 SHA-256。"
-            alert.addButton(withTitle: "下载并打开")
-            alert.addButton(withTitle: "查看 Release")
-            alert.addButton(withTitle: "稍后")
+            alert.messageText = L10n.tr("发现 OpenCodex Desktop \(release.version)")
+            alert.informativeText = L10n.tr("将从本仓库的 GitHub Release 下载 Apple Silicon DMG，并在打开前验证 SHA-256。")
+            alert.addButton(withTitle: L10n.tr("下载并打开"))
+            alert.addButton(withTitle: L10n.tr("查看 Release"))
+            alert.addButton(withTitle: L10n.tr("稍后"))
             switch alert.runModal() {
             case .alertFirstButtonReturn:
                 await downloadAvailableUpdate()
@@ -372,9 +372,9 @@ final class AppUpdateManager: ObservableObject {
                 break
             }
         } else {
-            alert.messageText = lastOperationFailed ? "检查更新失败" : "已是最新版本"
-            alert.informativeText = statusMessage ?? "当前版本为 \(currentVersion)。"
-            alert.addButton(withTitle: "好")
+            alert.messageText = lastOperationFailed ? L10n.tr("检查更新失败") : L10n.tr("已是最新版本")
+            alert.informativeText = statusMessage ?? L10n.tr("当前版本为 \(currentVersion)。")
+            alert.addButton(withTitle: L10n.tr("好"))
             _ = alert.runModal()
         }
     }
@@ -389,7 +389,7 @@ final class AppUpdateManager: ObservableObject {
         isDownloading = true
         lastOperationFailed = false
         downloadedUpdateURL = nil
-        statusMessage = "正在下载并校验 OpenCodex Desktop \(release.version)…"
+        statusMessage = L10n.tr("正在下载并校验 OpenCodex Desktop \(release.version)…")
         var temporaryDownloadURL: URL?
         defer {
             if let temporaryDownloadURL { try? fileManager.removeItem(at: temporaryDownloadURL) }
@@ -436,10 +436,10 @@ final class AppUpdateManager: ObservableObject {
             temporaryDownloadURL = nil
             try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: destinationURL.path)
             downloadedUpdateURL = destinationURL
-            statusMessage = "版本 \(release.version) 已下载并通过 SHA-256 校验"
+            statusMessage = L10n.tr("版本 \(release.version) 已下载并通过 SHA-256 校验")
         } catch {
             lastOperationFailed = true
-            statusMessage = "下载更新失败：\(error.localizedDescription)"
+            statusMessage = L10n.tr("下载更新失败：\(error.localizedDescription)")
         }
     }
 
@@ -454,7 +454,7 @@ final class AppUpdateManager: ObservableObject {
             return
         }
         lastOperationFailed = false
-        statusMessage = "已打开安装镜像，请将新版 App 拖入“应用程序”文件夹。"
+        statusMessage = L10n.tr("已打开安装镜像，请将新版 App 拖入“应用程序”文件夹。")
     }
 
     func revealDownloadedUpdate() {

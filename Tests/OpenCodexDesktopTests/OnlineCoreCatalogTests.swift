@@ -48,7 +48,7 @@ final class OnlineCoreCatalogTests: XCTestCase {
             catalog: catalog, pinned: CoreReleaseCatalog.userSelectable, selected: nil)
         XCTAssertEqual(options.map(\.version), ["2.60.0", "2.59.0", "2.58.0", "2.57.0", "2.56.0"])
         XCTAssertEqual(catalog.versions.count, 11)
-        XCTAssertTrue(options[1].label.contains("最新"))
+        XCTAssertTrue(options[1].label.contains(L10n.tr(" · 最新")))
     }
 
     func testPickerPreservesOlderSelectionOnlyOnce() throws {
@@ -56,7 +56,7 @@ final class OnlineCoreCatalogTests: XCTestCase {
         let options = CoreVersionOption.choices(catalog: catalog, pinned: [], selected: "2.50.0")
         XCTAssertEqual(options.count, 6)
         XCTAssertEqual(options.last?.version, "2.50.0")
-        XCTAssertTrue(options.last?.label.contains("当前选择") == true)
+        XCTAssertTrue(options.last?.label.contains(L10n.tr(" · 当前选择")) == true)
         let current = CoreVersionOption.choices(catalog: catalog, pinned: [], selected: "2.60.0")
         XCTAssertEqual(current.count, 5)
         XCTAssertEqual(current.filter { $0.version == "2.60.0" }.count, 1)
@@ -69,7 +69,7 @@ final class OnlineCoreCatalogTests: XCTestCase {
         XCTAssertEqual(options.count, 6)
         XCTAssertEqual(options.last?.version, pinned[0].version)
         XCTAssertFalse(options.last!.unavailable)
-        XCTAssertTrue(options.last!.label.contains("已锁定"))
+        XCTAssertTrue(options.last!.label.contains(L10n.tr("\(options.last!.version) · 已锁定")))
     }
 
     func testPickerOfflineFallbackAndCompatibilityWarnings() throws {
@@ -80,7 +80,7 @@ final class OnlineCoreCatalogTests: XCTestCase {
         let catalog = try OnlineCoreCatalog.decode(registry([entry("2.60.0", bun: "9.0.0"), entry()]))
         let options = CoreVersionOption.choices(catalog: catalog, pinned: [], selected: nil)
         XCTAssertTrue(options[0].unavailable)
-        XCTAssertTrue(options[0].label.contains("尚未适配"))
+        XCTAssertTrue(options[0].label.contains(L10n.tr("Bun 版本尚未适配")))
         XCTAssertFalse(options[1].unavailable)
     }
 

@@ -62,7 +62,7 @@ final class StopServiceCleanupTests: XCTestCase {
         XCTAssertTrue(succeeded)
         XCTAssertEqual(steps, ["stop", "restore", "quit", "launch"])
         XCTAssertNil(model.errorMessage)
-        XCTAssertEqual(model.operationMessage, "代理已停止，路由已还原，ChatGPT 已重启")
+        XCTAssertEqual(model.operationMessage, L10n.tr("代理已停止，路由已还原，ChatGPT 已重启"))
         XCTAssertFalse(model.isRefreshing)
         XCTAssertFalse(model.isStoppingService)
     }
@@ -75,7 +75,7 @@ final class StopServiceCleanupTests: XCTestCase {
         XCTAssertTrue(succeeded)
         XCTAssertEqual(restores, 1)
         XCTAssertEqual(app.launchCount, 0)
-        XCTAssertEqual(model.operationMessage, "代理已停止，路由已还原")
+        XCTAssertEqual(model.operationMessage, L10n.tr("代理已停止，路由已还原"))
     }
 
     func testFailedStopDoesNotRestoreOrRestart() async {
@@ -99,7 +99,9 @@ final class StopServiceCleanupTests: XCTestCase {
         let succeeded = await model.stopService()
         XCTAssertFalse(succeeded)
         XCTAssertEqual(app.quitCount, 0)
-        XCTAssertTrue(model.errorMessage?.contains("路由还原失败") == true)
+        XCTAssertEqual(
+            model.errorMessage,
+            L10n.tr("代理已停止，但路由还原失败；未重启 ChatGPT。\(CoreManagerError.restoreFailed("config busy").localizedDescription)"))
         XCTAssertNil(model.operationMessage)
     }
 
@@ -111,7 +113,7 @@ final class StopServiceCleanupTests: XCTestCase {
         XCTAssertFalse(succeeded)
         XCTAssertEqual(app.launchCount, 0)
         XCTAssertTrue(model.isChatGPTRestartPending)
-        XCTAssertTrue(model.errorMessage?.contains("路由已还原") == true)
+        XCTAssertEqual(model.errorMessage, L10n.tr("代理已停止，路由已还原；\(L10n.tr("ChatGPT 未在限定时间内退出，请手动退出后重试。"))"))
         XCTAssertNil(model.operationMessage)
     }
 
@@ -123,7 +125,7 @@ final class StopServiceCleanupTests: XCTestCase {
         XCTAssertFalse(succeeded)
         XCTAssertEqual(app.quitCount, 1)
         XCTAssertEqual(app.launchCount, 1)
-        XCTAssertTrue(model.errorMessage?.contains("无法启动 ChatGPT") == true)
+        XCTAssertTrue(model.errorMessage?.contains(L10n.tr("无法启动 ChatGPT，请确认应用仍安装在本机后重试。")) == true)
         XCTAssertNil(model.operationMessage)
     }
 
@@ -136,7 +138,7 @@ final class StopServiceCleanupTests: XCTestCase {
         XCTAssertTrue(succeeded)
         XCTAssertEqual(restores, 0)
         XCTAssertEqual(app.quitCount, 0)
-        XCTAssertEqual(model.operationMessage, "内核已停止")
+        XCTAssertEqual(model.operationMessage, L10n.tr("内核已停止"))
     }
 
     func testRepeatedStopIsRejectedWhileFirstIsRunning() async {
@@ -364,7 +366,7 @@ final class ExitCleanupTests: XCTestCase {
 
         let message = await model.runExitCleanup()
 
-        XCTAssertEqual(message, "还原 Codex 路由失败：路由被外部集成占用")
+        XCTAssertEqual(message, L10n.tr("还原 Codex 路由失败：\("路由被外部集成占用")"))
         XCTAssertEqual(app.quitCount, 0)
         XCTAssertTrue(model.didRunExitCleanup)
     }

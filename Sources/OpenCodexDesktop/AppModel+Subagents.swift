@@ -31,7 +31,7 @@ extension AppModel {
         } else if next.count < SubagentSelection.maximumChosen {
             next.append(model)
         } else {
-            subagentErrorMessage = "最多只能选择 \(SubagentSelection.maximumChosen) 个模型，请先取消一个。"
+            subagentErrorMessage = L10n.tr("最多只能选择 \(SubagentSelection.maximumChosen) 个模型，请先取消一个。")
             return
         }
         await applySubagentSelection(next)

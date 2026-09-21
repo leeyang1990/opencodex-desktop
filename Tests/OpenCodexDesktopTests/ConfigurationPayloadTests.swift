@@ -55,7 +55,7 @@ final class ConfigurationPayloadTests: XCTestCase {
 
         XCTAssertTrue(scheduling.isAutoSwitchEnabled)
         XCTAssertEqual(scheduling.upstreamFailoverThreshold, 3)
-        XCTAssertEqual(CodexAccountScheduling.strategyTitle(scheduling.accountPoolStrategy), "按额度")
+        XCTAssertEqual(CodexAccountScheduling.strategyTitle(scheduling.accountPoolStrategy), L10n.tr("按额度"))
     }
 
     /// Threshold 0 is how the Core expresses "do not switch automatically".

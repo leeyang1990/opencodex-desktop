@@ -40,6 +40,15 @@ cp "Info.plist" "$CONTENTS_PATH/Info.plist"
 cp "LICENSE" "$CONTENTS_PATH/Resources/LauncherLicense.txt"
 cp "THIRD_PARTY_NOTICES.md" "$CONTENTS_PATH/Resources/ThirdPartyNotices.md"
 
+# Package resources in the standard location. Also expose native
+# .lproj resources to AppKit and App Shortcuts through the main application bundle.
+RESOURCE_BUNDLE="$BIN_PATH/OpenCodexDesktop_OpenCodexDesktop.bundle"
+[[ -d "$RESOURCE_BUNDLE" ]] || { echo "Missing localization resource bundle" >&2; exit 1; }
+ditto "$RESOURCE_BUNDLE" "$CONTENTS_PATH/Resources/OpenCodexDesktop_OpenCodexDesktop.bundle"
+for language in en zh-hans; do
+  ditto "$RESOURCE_BUNDLE/$language.lproj" "$CONTENTS_PATH/Resources/$language.lproj"
+done
+
 for size in 16 32 128 256 512; do
   sips -z "$size" "$size" "$SOURCE_ICON" --out "$ICONSET_PATH/icon_${size}x${size}.png" >/dev/null
 done

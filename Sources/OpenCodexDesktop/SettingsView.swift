@@ -17,15 +17,15 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                PageHeader(title: "设置")
+                PageHeader(title: L10n.tr("设置"))
                     .padding(.bottom, 2)
 
                 clientSection
                 coreSection
                 clientUpdateStatus.cardStyle()
                 HStack {
-                    Button("诊断…") { openWindow(id: ShellWindow.diagnostics) }
-                    Button("查看内核日志") { model.openCoreLog() }
+                    Button(L10n.tr("诊断…")) { openWindow(id: ShellWindow.diagnostics) }
+                    Button(L10n.tr("查看内核日志")) { model.openCoreLog() }
                     Spacer()
                 }
                 .shellButtonStyle()
@@ -39,16 +39,16 @@ struct SettingsView: View {
         .onAppear { loadValues() }
         .task { await coreManager.refreshAvailableVersions() }
         .confirmationDialog(
-            "卸载 OpenCodex 内核？",
+            L10n.tr("卸载 OpenCodex 内核？"),
             isPresented: $confirmUninstall,
             titleVisibility: .visible
         ) {
-            Button("卸载内核", role: .destructive) {
+            Button(L10n.tr("卸载内核"), role: .destructive) {
                 Task { await model.uninstallCore() }
             }
-            Button("取消", role: .cancel) {}
+            Button(L10n.tr("取消"), role: .cancel) {}
         } message: {
-            Text("仅删除内核文件，保留账号、渠道与配置。")
+            Text(L10n.tr("仅删除内核文件，保留账号、渠道与配置。"))
         }
     }
 }

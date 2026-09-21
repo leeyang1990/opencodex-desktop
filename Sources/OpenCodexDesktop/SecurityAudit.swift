@@ -38,17 +38,17 @@ enum LocalSecurityAuditor {
                 networkItem(port: servicePort, pid: servicePID),
                 permissionItem(
                     id: .managementToken,
-                    title: "管理令牌文件",
+                    title: L10n.tr("管理令牌文件"),
                     url: tokenURL,
-                    expectedDescription: "令牌文件仅当前用户可读写（0600）。",
+                    expectedDescription: L10n.tr("令牌文件仅当前用户可读写（0600）。"),
                     missingState: .pending,
                     fileManager: fileManager
                 ),
                 permissionItem(
                     id: .dataDirectory,
-                    title: "Core 数据目录",
+                    title: L10n.tr("Core 数据目录"),
                     url: dataDirectory,
-                    expectedDescription: "数据目录仅当前用户可访问（0700）。",
+                    expectedDescription: L10n.tr("数据目录仅当前用户可访问（0700）。"),
                     missingState: .pending,
                     fileManager: fileManager
                 ),
@@ -61,8 +61,8 @@ enum LocalSecurityAuditor {
         guard let pid else {
             return SecurityAuditItem(
                 id: .networkBinding,
-                title: "本机监听范围",
-                detail: "Core 未运行，启动后检查实际监听地址。",
+                title: L10n.tr("本机监听范围"),
+                detail: L10n.tr("Core 未运行，启动后检查实际监听地址。"),
                 state: .pending
             )
         }
@@ -70,8 +70,8 @@ enum LocalSecurityAuditor {
         guard !names.isEmpty else {
             return SecurityAuditItem(
                 id: .networkBinding,
-                title: "本机监听范围",
-                detail: "未读取到 Core 的监听套接字。",
+                title: L10n.tr("本机监听范围"),
+                detail: L10n.tr("未读取到 Core 的监听套接字。"),
                 state: .attention
             )
         }
@@ -80,10 +80,10 @@ enum LocalSecurityAuditor {
         }
         return SecurityAuditItem(
             id: .networkBinding,
-            title: "本机监听范围",
+            title: L10n.tr("本机监听范围"),
             detail: unsafe
-                ? "Core 存在非回环监听地址，请检查 Core hostname 设置。"
-                : "Core 只在本机回环地址监听端口 \(port)。",
+                ? L10n.tr("Core 存在非回环监听地址，请检查 Core hostname 设置。")
+                : L10n.tr("Core 只在本机回环地址监听端口 \(port)。"),
             state: unsafe ? .attention : .passed
         )
     }
@@ -128,7 +128,7 @@ enum LocalSecurityAuditor {
             return SecurityAuditItem(
                 id: id,
                 title: title,
-                detail: "目标尚不存在或无法安全读取。",
+                detail: L10n.tr("目标尚不存在或无法安全读取。"),
                 state: missingState
             )
         }
@@ -139,7 +139,7 @@ enum LocalSecurityAuditor {
             title: title,
             detail: privateToUser
                 ? expectedDescription
-                : "当前权限为 \(String(mode, radix: 8))，其他本机用户可能访问。",
+                : L10n.tr("当前权限为 \(String(mode, radix: 8))，其他本机用户可能访问。"),
             state: privateToUser ? .passed : .attention
         )
     }
@@ -151,8 +151,8 @@ enum LocalSecurityAuditor {
         else {
             return SecurityAuditItem(
                 id: .appSignature,
-                title: "客户端代码签名",
-                detail: "开发测试环境不执行 App Bundle 签名检查。",
+                title: L10n.tr("客户端代码签名"),
+                detail: L10n.tr("开发测试环境不执行 App Bundle 签名检查。"),
                 state: .pending
             )
         }
@@ -167,15 +167,15 @@ enum LocalSecurityAuditor {
             let valid = process.terminationStatus == 0
             return SecurityAuditItem(
                 id: .appSignature,
-                title: "客户端代码签名",
-                detail: valid ? "App Bundle 代码签名结构有效。" : "App Bundle 签名校验失败，请重新安装可信发布包。",
+                title: L10n.tr("客户端代码签名"),
+                detail: valid ? L10n.tr("App Bundle 代码签名结构有效。") : L10n.tr("App Bundle 签名校验失败，请重新安装可信发布包。"),
                 state: valid ? .passed : .attention
             )
         } catch {
             return SecurityAuditItem(
                 id: .appSignature,
-                title: "客户端代码签名",
-                detail: "无法执行系统代码签名检查。",
+                title: L10n.tr("客户端代码签名"),
+                detail: L10n.tr("无法执行系统代码签名检查。"),
                 state: .attention
             )
         }

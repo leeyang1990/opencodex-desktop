@@ -8,7 +8,7 @@ struct SubagentsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                PageHeader(title: "子代理")
+                PageHeader(title: L10n.tr("子代理"))
                     .padding(.bottom, 2)
 
                 if !model.isOnline {
@@ -37,7 +37,7 @@ struct SubagentsView: View {
     private var selectedCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                Label("子代理模型", systemImage: "person.3.sequence")
+                Label(L10n.tr("子代理模型"), systemImage: "person.3.sequence")
                     .font(.title3.weight(.semibold))
                 Text("\(model.subagentModels.count)/\(SubagentSelection.maximumChosen)")
                     .font(.caption.monospacedDigit())
@@ -46,20 +46,20 @@ struct SubagentsView: View {
                 if model.isLoadingSubagents || model.isUpdatingSubagents {
                     ProgressView().controlSize(.small)
                 }
-                Button("清空") { Task { await model.clearSubagentModels() } }
+                Button(L10n.tr("清空")) { Task { await model.clearSubagentModels() } }
                     .controlSize(.small)
                     .disabled(model.subagentModels.isEmpty || model.isUpdatingSubagents)
-                Button("刷新") { Task { await model.loadSubagents() } }
+                Button(L10n.tr("刷新")) { Task { await model.loadSubagents() } }
                     .controlSize(.small)
                     .disabled(model.isLoadingSubagents)
             }
 
-            Text("按顺序优先使用 · 自动保存")
+            Text(L10n.tr("按顺序优先使用 · 自动保存"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
             if model.subagentModels.isEmpty {
-                Text("从下方选择模型，最多 \(SubagentSelection.maximumChosen) 个。")
+                Text(L10n.tr("从下方选择模型，最多 \(SubagentSelection.maximumChosen) 个。"))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 6)
@@ -115,7 +115,7 @@ struct SubagentsView: View {
     private var availableCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("可用模型", systemImage: "square.stack.3d.up")
+                Label(L10n.tr("可用模型"), systemImage: "square.stack.3d.up")
                     .font(.title3.weight(.semibold))
                 Text("\(model.subagentAvailable.count)")
                     .font(.caption.monospacedDigit())
@@ -124,7 +124,7 @@ struct SubagentsView: View {
             }
 
             if model.subagentAvailable.isEmpty {
-                Text("暂无模型，请先添加渠道。")
+                Text(L10n.tr("暂无模型，请先添加渠道。"))
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else {
@@ -157,10 +157,10 @@ struct SubagentsView: View {
             Image(systemName: "bolt.slash")
                 .font(.system(size: 26, weight: .medium))
                 .foregroundStyle(.secondary)
-            Text("启动代理后配置子代理")
+            Text(L10n.tr("启动代理后配置子代理"))
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            Button("启动代理") { Task { await model.startService() } }
+            Button(L10n.tr("启动代理")) { Task { await model.startService() } }
                 .shellButtonStyle(prominent: true)
                 .disabled(model.isRefreshing)
         }

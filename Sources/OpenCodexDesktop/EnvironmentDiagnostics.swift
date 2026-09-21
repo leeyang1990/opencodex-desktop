@@ -62,7 +62,7 @@ enum CoreIntegrityInspector {
     ) -> CoreIntegrityInspection {
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: root.path, isDirectory: &isDirectory) else { return .missing }
-        guard isDirectory.boolValue else { return .invalid("内核版本路径不是目录。") }
+        guard isDirectory.boolValue else { return .invalid(L10n.tr("内核版本路径不是目录。")) }
 
         let manifestURL = root.appendingPathComponent("installation.json", isDirectory: false)
         guard
@@ -75,13 +75,13 @@ enum CoreIntegrityInspector {
             let data = try? Data(contentsOf: manifestURL),
             data.count <= 16_384
         else {
-            return .invalid("安装清单缺失或不安全。")
+            return .invalid(L10n.tr("安装清单缺失或不安全。"))
         }
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         guard let manifest = try? decoder.decode(InstalledCoreManifest.self, from: data) else {
-            return .invalid("安装清单无法解析。")
+            return .invalid(L10n.tr("安装清单无法解析。"))
         }
         guard manifest.schemaVersion == 1,
             manifest.coreVersion == release.version,
@@ -89,7 +89,7 @@ enum CoreIntegrityInspector {
             manifest.bunVersion == release.bunVersion,
             manifest.packageSHA256 == release.package.sha256
         else {
-            return .invalid("安装清单与当前可信版本目录不匹配。")
+            return .invalid(L10n.tr("安装清单与当前可信版本目录不匹配。"))
         }
 
         let runtime = root.appendingPathComponent("bin/bun", isDirectory: false)
@@ -99,7 +99,7 @@ enum CoreIntegrityInspector {
             fileManager.fileExists(atPath: cli.path),
             fileManager.fileExists(atPath: dependencies.path)
         else {
-            return .invalid("Core、Bun 或运行依赖不完整。")
+            return .invalid(L10n.tr("Core、Bun 或运行依赖不完整。"))
         }
         return .valid(manifest)
     }
@@ -175,16 +175,16 @@ enum EnvironmentDiagnostics {
         var items = [
             EnvironmentCheckItem(
                 id: .systemPrivacy,
-                title: "系统隐私权限",
-                detail: "核心功能只使用应用数据目录和本机回环网络，无需完全磁盘访问、辅助功能或屏幕录制。",
+                title: L10n.tr("系统隐私权限"),
+                detail: L10n.tr("核心功能只使用应用数据目录和本机回环网络，无需完全磁盘访问、辅助功能或屏幕录制。"),
                 state: .passed
             ),
             EnvironmentCheckItem(
                 id: .localStorage,
-                title: "本地数据目录",
+                title: L10n.tr("本地数据目录"),
                 detail: dataDirectoryWritable && coreDirectoryWritable
-                    ? "应用数据与 Core 安装目录均可写。"
-                    : "应用数据或 Core 安装目录不可写，请检查目录所有者与权限。",
+                    ? L10n.tr("应用数据与 Core 安装目录均可写。")
+                    : L10n.tr("应用数据或 Core 安装目录不可写，请检查目录所有者与权限。"),
                 state: dataDirectoryWritable && coreDirectoryWritable ? .passed : .attention
             ),
         ]
@@ -193,7 +193,7 @@ enum EnvironmentDiagnostics {
         items.append(
             EnvironmentCheckItem(
                 id: .diskSpace,
-                title: "可用磁盘空间",
+                title: L10n.tr("可用磁盘空间"),
                 detail: diskDetail(availableDiskBytes),
                 state: availableDiskBytes.map { $0 >= minimumDiskBytes ? .passed : .attention } ?? .pending
             )
@@ -212,7 +212,7 @@ enum EnvironmentDiagnostics {
         items.append(
             EnvironmentCheckItem(
                 id: .serviceEndpoint,
-                title: "本机服务与端口",
+                title: L10n.tr("本机服务与端口"),
                 detail: serviceDetail(
                     serviceOnline: serviceOnline,
                     portInspection: portInspection
@@ -228,12 +228,12 @@ enum EnvironmentDiagnostics {
         items.append(
             EnvironmentCheckItem(
                 id: .managementToken,
-                title: "本机管理令牌",
+                title: L10n.tr("本机管理令牌"),
                 detail: tokenAvailable
-                    ? "令牌文件可安全读取，仅用于本机管理请求。"
+                    ? L10n.tr("令牌文件可安全读取，仅用于本机管理请求。")
                     : coreInstalled
-                        ? "Core 已安装但管理令牌不可用，请重新启动或重新安装 Core。"
-                        : "安装并首次启动 Core 后自动创建，无需手动授权。",
+                        ? L10n.tr("Core 已安装但管理令牌不可用，请重新启动或重新安装 Core。")
+                        : L10n.tr("安装并首次启动 Core 后自动创建，无需手动授权。"),
                 state: tokenAvailable ? .passed : coreInstalled ? .attention : .pending
             )
         )
@@ -242,8 +242,8 @@ enum EnvironmentDiagnostics {
             items.append(
                 EnvironmentCheckItem(
                     id: .codexRuntime,
-                    title: "Codex CLI 安装",
-                    detail: "Desktop 已找到并验证 Codex \(version)，来源：\(localRuntime.source.title)。",
+                    title: L10n.tr("Codex CLI 安装"),
+                    detail: L10n.tr("Desktop 已找到并验证 Codex \(version)，来源：\(localRuntime.source.title)。"),
                     state: .passed
                 )
             )
@@ -251,8 +251,8 @@ enum EnvironmentDiagnostics {
             items.append(
                 EnvironmentCheckItem(
                     id: .codexRuntime,
-                    title: "Codex CLI 安装",
-                    detail: "Desktop 未找到可执行且版本可验证的 Codex CLI；请安装后重新扫描。",
+                    title: L10n.tr("Codex CLI 安装"),
+                    detail: L10n.tr("Desktop 未找到可执行且版本可验证的 Codex CLI；请安装后重新扫描。"),
                     state: .attention
                 )
             )
@@ -260,8 +260,8 @@ enum EnvironmentDiagnostics {
             items.append(
                 EnvironmentCheckItem(
                     id: .codexRuntime,
-                    title: "Codex CLI 安装",
-                    detail: "Desktop 正在扫描本机 Codex CLI。",
+                    title: L10n.tr("Codex CLI 安装"),
+                    detail: L10n.tr("Desktop 正在扫描本机 Codex CLI。"),
                     state: .pending
                 )
             )
@@ -270,12 +270,12 @@ enum EnvironmentDiagnostics {
         items.append(
             EnvironmentCheckItem(
                 id: .loginItem,
-                title: "登录项",
+                title: L10n.tr("登录项"),
                 detail: loginItemRequiresApproval
-                    ? "登录启动已请求，但仍需要在系统设置中批准。"
+                    ? L10n.tr("登录启动已请求，但仍需要在系统设置中批准。")
                     : loginItemEnabled
-                        ? "登录启动已启用。"
-                        : "登录启动未启用，不需要系统批准。",
+                        ? L10n.tr("登录启动已启用。")
+                        : L10n.tr("登录启动未启用，不需要系统批准。"),
                 state: loginItemRequiresApproval ? .attention : .passed
             )
         )
@@ -284,23 +284,23 @@ enum EnvironmentDiagnostics {
     }
 
     private static func diskDetail(_ bytes: Int64?) -> String {
-        guard let bytes else { return "暂时无法读取磁盘容量。" }
+        guard let bytes else { return L10n.tr("暂时无法读取磁盘容量。") }
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
         let formatted = formatter.string(fromByteCount: bytes)
         return bytes >= 1_024 * 1_024 * 1_024
-            ? "应用数据卷剩余约 \(formatted)。"
-            : "应用数据卷只剩约 \(formatted)，安装或更新可能失败。"
+            ? L10n.tr("应用数据卷剩余约 \(formatted)。")
+            : L10n.tr("应用数据卷只剩约 \(formatted)，安装或更新可能失败。")
     }
 
     private static func coreDetail(_ inspection: CoreIntegrityInspection) -> String {
         switch inspection {
         case .missing:
-            "尚未安装当前选择的可信 Core。"
+            L10n.tr("尚未安装当前选择的可信 Core。")
         case let .valid(manifest):
-            "Core \(manifest.coreVersion) 的安装清单与运行文件完整。"
+            L10n.tr("Core \(manifest.coreVersion) 的安装清单与运行文件完整。")
         case let .invalid(detail):
-            "安装需要修复：\(detail)"
+            L10n.tr("安装需要修复：\(detail)")
         }
     }
 
@@ -317,18 +317,18 @@ enum EnvironmentDiagnostics {
         portInspection: LocalPortInspection
     ) -> String {
         if serviceOnline {
-            if case let .core(pid) = portInspection, let pid { return "Core 正在本机端口监听，PID \(pid)。" }
-            return "Core 管理接口仅在本机回环地址可用。"
+            if case let .core(pid) = portInspection, let pid { return L10n.tr("Core 正在本机端口监听，PID \(pid)。") }
+            return L10n.tr("Core 管理接口仅在本机回环地址可用。")
         }
         switch portInspection {
         case .available:
-            return "目标端口当前空闲，可以启动 Core。"
+            return L10n.tr("目标端口当前空闲，可以启动 Core。")
         case let .occupied(pid):
-            return pid.map { "目标端口被其他进程占用（PID \($0)）。" } ?? "目标端口被其他进程占用。"
+            return pid.map { L10n.tr("目标端口被其他进程占用（PID \($0)）。") } ?? L10n.tr("目标端口被其他进程占用。")
         case .core:
-            return "目标端口已监听，但 Core 管理接口尚未就绪。"
+            return L10n.tr("目标端口已监听，但 Core 管理接口尚未就绪。")
         case .unknown:
-            return "服务未响应，暂时无法确认端口占用者。"
+            return L10n.tr("服务未响应，暂时无法确认端口占用者。")
         }
     }
 

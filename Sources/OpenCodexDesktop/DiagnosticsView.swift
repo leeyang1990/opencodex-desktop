@@ -13,8 +13,8 @@ struct DiagnosticsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 PageHeader(
-                    title: "诊断",
-                    subtitle: "检查与修复运行问题"
+                    title: L10n.tr("诊断"),
+                    subtitle: L10n.tr("检查与修复运行问题")
                 )
                 .padding(.bottom, 2)
 
@@ -48,7 +48,7 @@ struct DiagnosticsView: View {
                         model.runEnvironmentCheck()
                     }
                 } label: {
-                    Label("重新检查", systemImage: "arrow.clockwise")
+                    Label(L10n.tr("重新检查"), systemImage: "arrow.clockwise")
                 }
                 .disabled(model.isRefreshing)
             }
@@ -78,7 +78,7 @@ struct DiagnosticsView: View {
             VStack(alignment: .trailing, spacing: 4) {
                 Text("\(passedCount)/\(model.environmentReport.items.count)")
                     .font(.title2.weight(.semibold).monospacedDigit())
-                Text("检查通过")
+                Text(L10n.tr("检查通过"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -88,7 +88,7 @@ struct DiagnosticsView: View {
 
     private var checksCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label("本机检查", systemImage: "checklist")
+            Label(L10n.tr("本机检查"), systemImage: "checklist")
                 .font(.title3.weight(.semibold))
             EnvironmentCheckList(report: model.environmentReport)
         }
@@ -97,45 +97,45 @@ struct DiagnosticsView: View {
 
     private var repairCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label("安全操作", systemImage: "wrench.and.screwdriver")
+            Label(L10n.tr("安全操作"), systemImage: "wrench.and.screwdriver")
                 .font(.title3.weight(.semibold))
 
-            Text("仅影响本机内核，不更改账号、渠道与路由。")
+            Text(L10n.tr("仅影响本机内核，不更改账号、渠道与路由。"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 10) {
                 if model.coreIntegrityInspection.needsRepair {
-                    Button("修复 Core 安装") { Task { await model.installCore() } }
+                    Button(L10n.tr("修复 Core 安装")) { Task { await model.installCore() } }
                         .shellButtonStyle(prominent: true)
                 } else if !model.coreIntegrityInspection.isValid {
-                    Button("安装 Core") { Task { await model.installCore() } }
+                    Button(L10n.tr("安装 Core")) { Task { await model.installCore() } }
                         .shellButtonStyle(prominent: true)
                 } else if model.isOnline {
-                    Button("重启 Core") { Task { await model.restartService() } }
+                    Button(L10n.tr("重启 Core")) { Task { await model.restartService() } }
                         .shellButtonStyle(prominent: true)
                 } else {
-                    Button("启动 Core") { Task { await model.startService() } }
+                    Button(L10n.tr("启动 Core")) { Task { await model.startService() } }
                         .shellButtonStyle(prominent: true)
                         .disabled(portIsOccupied)
                 }
 
-                Button("查看 Core 日志") { model.openCoreLog() }
+                Button(L10n.tr("查看 Core 日志")) { model.openCoreLog() }
                     .disabled(!coreLogExists)
-                Button("打开安装目录") { model.openCoreInstallationFolder() }
+                Button(L10n.tr("打开安装目录")) { model.openCoreInstallationFolder() }
                     .disabled(!coreFolderExists)
                 Spacer()
-                Button("导出诊断包") { model.exportDiagnostics() }
+                Button(L10n.tr("导出诊断包")) { model.exportDiagnostics() }
             }
 
             if model.environmentReport.requiresLoginItemApproval {
                 Divider()
                 HStack {
-                    Label("登录项仍需在系统设置中批准", systemImage: "exclamationmark.triangle.fill")
+                    Label(L10n.tr("登录项仍需在系统设置中批准"), systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
                         .foregroundStyle(AppPalette.warning)
                     Spacer()
-                    Button("打开登录项设置") { loginItem.openSystemSettings() }
+                    Button(L10n.tr("打开登录项设置")) { loginItem.openSystemSettings() }
                 }
             }
         }
@@ -154,7 +154,7 @@ struct DiagnosticsView: View {
                 Button {
                     Task { await model.scanCodexRuntimes() }
                 } label: {
-                    Label("重新扫描", systemImage: "arrow.clockwise")
+                    Label(L10n.tr("重新扫描"), systemImage: "arrow.clockwise")
                 }
                 .disabled(model.isScanningCodexRuntimes)
             }
@@ -183,7 +183,7 @@ struct DiagnosticsView: View {
             }
 
             Label {
-                Text("选择内核调用的 CLI，不更改系统命令或账号。")
+                Text(L10n.tr("选择内核调用的 CLI，不更改系统命令或账号。"))
             } icon: {
                 Image(systemName: "info.circle")
             }
@@ -194,7 +194,7 @@ struct DiagnosticsView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Divider()
                     if model.codexRuntimeCandidates.isEmpty, !model.isScanningCodexRuntimes {
-                        Text("没有可供切换的 Codex CLI。")
+                        Text(L10n.tr("没有可供切换的 Codex CLI。"))
                             .font(.callout)
                             .foregroundStyle(.secondary)
                     } else {
@@ -208,12 +208,12 @@ struct DiagnosticsView: View {
                     }
 
                     HStack(alignment: .firstTextBaseline) {
-                        Text("切换会重启内核，保留配置。")
+                        Text(L10n.tr("切换会重启内核，保留配置。"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Spacer()
                         if coreManager.preferredCodexRuntimePath != nil {
-                            Button("恢复自动选择") { Task { await model.clearCodexRuntimePreference() } }
+                            Button(L10n.tr("恢复自动选择")) { Task { await model.clearCodexRuntimePreference() } }
                                 .disabled(model.isRefreshing)
                         }
                     }
@@ -221,9 +221,9 @@ struct DiagnosticsView: View {
                 .padding(.top, 8)
             } label: {
                 HStack {
-                    Label("更换 CLI", systemImage: "slider.horizontal.3")
+                    Label(L10n.tr("更换 CLI"), systemImage: "slider.horizontal.3")
                     Spacer()
-                    Text("\(model.codexRuntimeCandidates.filter(\.isValid).count) 个可用版本")
+                    Text(L10n.tr("\(model.codexRuntimeCandidates.filter(\.isValid).count) 个可用版本"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -236,19 +236,19 @@ struct DiagnosticsView: View {
     private var eventHistoryCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Label("本机事件", systemImage: "clock.arrow.circlepath")
+                Label(L10n.tr("本机事件"), systemImage: "clock.arrow.circlepath")
                     .font(.title3.weight(.semibold))
                 Spacer()
-                Text("最近 7 天")
+                Text(L10n.tr("最近 7 天"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if !eventStore.events.isEmpty {
-                    Button("清除") { eventStore.clear() }
+                    Button(L10n.tr("清除")) { eventStore.clear() }
                 }
             }
 
             if eventStore.events.isEmpty {
-                Text("暂无本机运行事件。")
+                Text(L10n.tr("暂无本机运行事件。"))
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else {
@@ -278,7 +278,7 @@ struct DiagnosticsView: View {
                 }
             }
 
-            Text("仅记录运行状态，不含账号或请求内容。")
+            Text(L10n.tr("仅记录运行状态，不含账号或请求内容。"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -287,7 +287,7 @@ struct DiagnosticsView: View {
 
     private var securityAuditCard: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label("本机安全审计", systemImage: "lock.shield")
+            Label(L10n.tr("本机安全审计"), systemImage: "lock.shield")
                 .font(.title3.weight(.semibold))
 
             VStack(spacing: 0) {
@@ -335,16 +335,16 @@ struct DiagnosticsView: View {
                 .foregroundStyle(candidate.isValid ? AppPalette.success : AppPalette.danger)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 7) {
-                    Text(candidate.version.map { "Codex \($0)" } ?? "无法验证")
+                    Text(candidate.version.map { "Codex \($0)" } ?? L10n.tr("无法验证"))
                         .font(.callout.weight(.medium))
                     Pill(text: candidate.source.title, color: .secondary)
                     if recommendedRuntime?.path == candidate.path {
-                        Pill(text: "推荐", color: AppPalette.success)
+                        Pill(text: L10n.tr("推荐"), color: AppPalette.success)
                     }
                     if coreUsesCandidate(candidate) {
-                        Pill(text: "Core 当前使用", color: AppPalette.accent)
+                        Pill(text: L10n.tr("Core 当前使用"), color: AppPalette.accent)
                     } else if coreManager.preferredCodexRuntimePath == candidate.path {
-                        Pill(text: "重启后使用", color: AppPalette.accent)
+                        Pill(text: L10n.tr("重启后使用"), color: AppPalette.accent)
                     }
                 }
                 Text(candidate.displayPath)
@@ -403,50 +403,50 @@ struct DiagnosticsView: View {
 
     private var runtimeStatusTitle: String {
         if let version = model.settings?.codexRuntime?.version {
-            return "Core 当前使用 Codex \(version)"
+            return L10n.tr("Core 当前使用 Codex \(version)")
         }
         if let recommendedRuntime {
             return model.isOnline
-                ? "Core 尚未指定 Codex CLI"
-                : "已找到 Codex \(recommendedRuntime.version ?? "")"
+                ? L10n.tr("Core 尚未指定 Codex CLI")
+                : L10n.tr("已找到 Codex \(recommendedRuntime.version ?? "")")
         }
-        return model.isScanningCodexRuntimes ? "正在查找 Codex CLI" : "未找到 Codex CLI"
+        return model.isScanningCodexRuntimes ? L10n.tr("正在查找 Codex CLI") : L10n.tr("未找到 Codex CLI")
     }
 
     private var runtimeStatusDetail: String {
         if let runtime = model.settings?.codexRuntime, runtime.version != nil {
-            let path = runtime.path.map(expandedRuntimePath) ?? "路径未知"
-            return "已验证版本 · \(path) · \(runtimeSourceTitle(runtime.source))"
+            let path = runtime.path.map(expandedRuntimePath) ?? L10n.tr("路径未知")
+            return L10n.tr("已验证版本 · \(path) · \(runtimeSourceTitle(runtime.source))")
         }
         if recommendedRuntime != nil {
             return model.isOnline
-                ? "当前仅回退尝试系统命令 codex，版本无法确认；Codex 登录与能力识别可能不稳定。"
-                : "Core 尚未运行；选择推荐版本后，下次启动将使用该版本。"
+                ? L10n.tr("当前仅回退尝试系统命令 codex，版本无法确认；Codex 登录与能力识别可能不稳定。")
+                : L10n.tr("Core 尚未运行；选择推荐版本后，下次启动将使用该版本。")
         }
         return model.isScanningCodexRuntimes
-            ? "正在检查 NVM、Homebrew、Codex.app、ChatGPT.app 与系统 PATH。"
-            : "请先安装 Codex CLI，然后重新扫描。"
+            ? L10n.tr("正在检查 NVM、Homebrew、Codex.app、ChatGPT.app 与系统 PATH。")
+            : L10n.tr("请先安装 Codex CLI，然后重新扫描。")
     }
 
     private var runtimePrimaryActionTitle: String {
         model.isOnline || coreManager.ownsRunningProcess
-            ? "让 Core 使用推荐版本并重启"
-            : "让 Core 下次使用推荐版本"
+            ? L10n.tr("让 Core 使用推荐版本并重启")
+            : L10n.tr("让 Core 下次使用推荐版本")
     }
 
     private var candidateActionTitle: String {
         model.isOnline || coreManager.ownsRunningProcess
-            ? "让 Core 使用此版本并重启"
-            : "让 Core 使用此版本"
+            ? L10n.tr("让 Core 使用此版本并重启")
+            : L10n.tr("让 Core 使用此版本")
     }
 
     private func runtimeSourceTitle(_ source: String?) -> String {
         switch source {
-        case "environment": "Desktop 指定"
-        case "configured": "Core 已保存"
-        case "shim": "应用运行环境"
-        case "path": "系统 PATH"
-        default: source ?? "自动发现"
+        case "environment": L10n.tr("Desktop 指定")
+        case "configured": L10n.tr("Core 已保存")
+        case "shim": L10n.tr("应用运行环境")
+        case "path": L10n.tr("系统 PATH")
+        default: source ?? L10n.tr("自动发现")
         }
     }
 
@@ -454,18 +454,18 @@ struct DiagnosticsView: View {
     /// occupying the main settings page.
     private var connectionCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label("连接", systemImage: "network")
+            Label(L10n.tr("连接"), systemImage: "network")
                 .font(.title3.weight(.semibold))
 
             Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 10) {
                 GridRow {
-                    Text("主机").foregroundStyle(.secondary)
+                    Text(L10n.tr("主机")).foregroundStyle(.secondary)
                     TextField("127.0.0.1", text: $host)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 200, alignment: .leading)
                 }
                 GridRow {
-                    Text("端口").foregroundStyle(.secondary)
+                    Text(L10n.tr("端口")).foregroundStyle(.secondary)
                     TextField("10100", value: $port, format: .number.grouping(.never))
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 120, alignment: .leading)
@@ -480,7 +480,7 @@ struct DiagnosticsView: View {
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                 Spacer()
-                Button("应用并重连") {
+                Button(L10n.tr("应用并重连")) {
                     model.connectionHost = host
                     model.connectionPort = port
                     Task { await model.saveConnection() }
@@ -493,7 +493,7 @@ struct DiagnosticsView: View {
                 Image(systemName: model.tokenAvailable ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                     .foregroundStyle(model.tokenAvailable ? AppPalette.success : AppPalette.warning)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(model.tokenAvailable ? "管理令牌可用" : "未找到管理令牌")
+                    Text(model.tokenAvailable ? L10n.tr("管理令牌可用") : L10n.tr("未找到管理令牌"))
                         .font(.callout.weight(.medium))
                     Text(model.tokenPath)
                         .font(.caption.monospaced())
@@ -502,10 +502,10 @@ struct DiagnosticsView: View {
                         .truncationMode(.middle)
                 }
                 Spacer()
-                Button("在 Finder 中显示") { model.openConfigFolder() }
+                Button(L10n.tr("在 Finder 中显示")) { model.openConfigFolder() }
             }
 
-            Text("客户端只在本机回环请求中使用令牌，不会显示、记录或另存其内容。")
+            Text(L10n.tr("客户端只在本机回环请求中使用令牌，不会显示、记录或另存其内容。"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -514,7 +514,7 @@ struct DiagnosticsView: View {
 
     private var privacyNote: some View {
         Label {
-            Text("诊断包不会包含 API Key、管理令牌内容、账号标识、请求正文或内核原始日志。")
+            Text(L10n.tr("诊断包不会包含 API Key、管理令牌内容、账号标识、请求正文或内核原始日志。"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         } icon: {
@@ -532,12 +532,12 @@ struct DiagnosticsView: View {
     }
 
     private var summaryTitle: String {
-        attentionCount == 0 ? "本机环境状态良好" : "发现 \(attentionCount) 个需要处理的项目"
+        attentionCount == 0 ? L10n.tr("本机环境状态良好") : L10n.tr("发现 \(attentionCount) 个需要处理的项目")
     }
 
     private var summaryDetail: String {
-        guard let checkedAt = model.environmentReport.checkedAt else { return "正在读取本机状态…" }
-        return "最近检查：\(checkedAt.formatted(date: .abbreviated, time: .standard))"
+        guard let checkedAt = model.environmentReport.checkedAt else { return L10n.tr("正在读取本机状态…") }
+        return L10n.tr("最近检查：\(checkedAt.formatted(date: .abbreviated, time: .standard))")
     }
 
     private var portIsOccupied: Bool {

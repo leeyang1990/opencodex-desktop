@@ -16,17 +16,17 @@ struct OnlineCoreVersion: Codable, Equatable, Identifiable, Sendable {
 
     var unavailableReason: String? {
         guard let parts = Self.components(version), parts[0] == 2, parts[1] >= 12 else {
-            return "超出客户端支持的 Core 2.x 范围"
+            return L10n.tr("超出客户端支持的 Core 2.x 范围")
         }
-        guard deprecated == nil else { return "上游已弃用" }
+        guard deprecated == nil else { return L10n.tr("上游已弃用") }
         guard dependencies?["bun"].flatMap(OnlineCoreCatalog.runtime) != nil else {
-            return "Bun 版本尚未适配"
+            return L10n.tr("Bun 版本尚未适配")
         }
         guard name == OnlineCoreCatalog.packageName,
             gitHead?.range(of: "^[a-f0-9]{40}$", options: .regularExpression) != nil,
             dist.tarball.absoluteString == OnlineCoreCatalog.packageURL(version).absoluteString,
             Self.integrityDigest(dist.integrity) != nil
-        else { return "缺少可验证的发布信息" }
+        else { return L10n.tr("缺少可验证的发布信息") }
         return nil
     }
 
@@ -135,7 +135,7 @@ struct CoreVersionOption: Equatable {
         return options.map { option in
             Self(
                 version: option.version,
-                label: option.label + (option.version == selected ? " · 当前选择" : ""),
+                label: option.label + (option.version == selected ? L10n.tr(" · 当前选择") : ""),
                 unavailable: option.unavailable)
         }
     }
@@ -144,12 +144,13 @@ struct CoreVersionOption: Equatable {
         let reason = entry.unavailableReason
         return Self(
             version: entry.version,
-            label: entry.version + (entry.version == latest ? " · 最新" : "") + (reason.map { " · \($0)" } ?? ""),
+            label: entry.version + (entry.version == latest ? L10n.tr(" · 最新") : "")
+                + (reason.map { " · \($0)" } ?? ""),
             unavailable: reason != nil)
     }
 
     private static func locked(_ release: CoreRelease) -> Self {
-        Self(version: release.version, label: "\(release.version) · 已锁定", unavailable: false)
+        Self(version: release.version, label: L10n.tr("\(release.version) · 已锁定"), unavailable: false)
     }
 }
 
@@ -157,11 +158,11 @@ enum OnlineCoreCatalogError: LocalizedError {
     case invalidMetadata, unsupported(String), checksum, network(Int), oversized
     var errorDescription: String? {
         switch self {
-        case .invalidMetadata: "上游版本信息不完整或来源不可信。"
+        case .invalidMetadata: L10n.tr("上游版本信息不完整或来源不可信。")
         case .unsupported(let reason): reason
-        case .checksum: "版本制品校验失败，未更改当前内核选择。"
-        case .network(let status): "版本服务返回 HTTP \(status)，请稍后刷新。"
-        case .oversized: "版本服务响应超过大小限制。"
+        case .checksum: L10n.tr("版本制品校验失败，未更改当前内核选择。")
+        case .network(let status): L10n.tr("版本服务返回 HTTP \(status)，请稍后刷新。")
+        case .oversized: L10n.tr("版本服务响应超过大小限制。")
         }
     }
 }

@@ -59,19 +59,19 @@ extension AppModel {
             let quit = await chatGPT.requestQuit(timeout: AppConstants.ChatGPT.quitTimeout)
             guard quit else {
                 refreshChatGPTStatus()
-                errorMessage = "ChatGPT 未在限定时间内退出，请手动退出后重试。"
+                errorMessage = L10n.tr("ChatGPT 未在限定时间内退出，请手动退出后重试。")
                 return false
             }
         }
         guard await chatGPT.launch() else {
             refreshChatGPTStatus()
-            errorMessage = "无法启动 ChatGPT，请确认应用仍安装在本机后重试。"
+            errorMessage = L10n.tr("无法启动 ChatGPT，请确认应用仍安装在本机后重试。")
             return false
         }
         isChatGPTRestartPending = false
         refreshChatGPTStatus()
         errorMessage = nil
-        operationMessage = wasRunning ? "ChatGPT 已重启，新的 Codex 配置已生效" : "ChatGPT 已启动"
+        operationMessage = wasRunning ? L10n.tr("ChatGPT 已重启，新的 Codex 配置已生效") : L10n.tr("ChatGPT 已启动")
         eventStore.append(.chatGPTRestarted, detail: reason)
         return true
     }
@@ -110,7 +110,7 @@ extension AppModel {
         } catch {
             // A failed re-point is not a launcher failure: the Core console owns routing, and the
             // Overview card still offers the manual action.
-            eventStore.append(.runtimeChanged, detail: "Codex 路由重新指向失败")
+            eventStore.append(.runtimeChanged, detail: L10n.tr("Codex 路由重新指向失败"))
         }
     }
 
@@ -121,11 +121,11 @@ extension AppModel {
             try await reapplyRoutingOperation()
             await refresh(showSpinner: false)
             guard settings?.isCodexRoutingInjected != false else {
-                errorMessage = "内核未确认路由已恢复，请查看内核日志。"
+                errorMessage = L10n.tr("内核未确认路由已恢复，请查看内核日志。")
                 return
             }
             errorMessage = nil
-            operationMessage = "Codex 路由已重新指向本机代理"
+            operationMessage = L10n.tr("Codex 路由已重新指向本机代理")
             if chatGPT.isRunning { isChatGPTRestartPending = true }
         } catch {
             errorMessage = error.localizedDescription
@@ -138,16 +138,16 @@ extension AppModel {
     func restoreRoutingAndRestartChatGPT() async {
         isRefreshing = true
         defer { isRefreshing = false }
-        switch await restoreCodexRouting(restartChatGPT: true, reason: "手动还原") {
+        switch await restoreCodexRouting(restartChatGPT: true, reason: L10n.tr("手动还原")) {
         case .restored:
             errorMessage = nil
-            operationMessage = "已还原 Codex 路由，并重启 ChatGPT"
-            eventStore.append(.codexRoutingRestored, detail: "手动还原")
+            operationMessage = L10n.tr("已还原 Codex 路由，并重启 ChatGPT")
+            eventStore.append(.codexRoutingRestored, detail: L10n.tr("手动还原"))
         case .timedOut:
-            errorMessage = "还原 Codex 路由超时，配置可能仍指向本机代理。"
-            eventStore.append(.codexRoutingRestoreFailed, detail: "超时")
+            errorMessage = L10n.tr("还原 Codex 路由超时，配置可能仍指向本机代理。")
+            eventStore.append(.codexRoutingRestoreFailed, detail: L10n.tr("超时"))
         case let .failed(detail):
-            errorMessage = detail.isEmpty ? "还原 Codex 路由失败。" : detail
+            errorMessage = detail.isEmpty ? L10n.tr("还原 Codex 路由失败。") : detail
             eventStore.append(.codexRoutingRestoreFailed, detail: detail.isEmpty ? nil : detail)
         }
         runEnvironmentCheck()
@@ -170,19 +170,19 @@ extension AppModel {
         guard planner.shouldRestoreRouting else { return nil }
         didRunExitCleanup = true
 
-        switch await restoreCodexRouting(restartChatGPT: true, reason: "退出客户端") {
+        switch await restoreCodexRouting(restartChatGPT: true, reason: L10n.tr("退出客户端")) {
         case .restored:
             defaults.set(Date(), forKey: DesktopPreferences.lastExitCleanupKey)
-            eventStore.append(.codexRoutingRestored, detail: "退出客户端")
+            eventStore.append(.codexRoutingRestored, detail: L10n.tr("退出客户端"))
             return nil
         case .timedOut:
-            let message = "还原 Codex 路由超时，配置可能仍指向本机代理。"
-            eventStore.append(.codexRoutingRestoreFailed, detail: "超时")
+            let message = L10n.tr("还原 Codex 路由超时，配置可能仍指向本机代理。")
+            eventStore.append(.codexRoutingRestoreFailed, detail: L10n.tr("超时"))
             return message
         case let .failed(detail):
             eventStore.append(.codexRoutingRestoreFailed, detail: detail.isEmpty ? nil : detail)
             let trimmed = detail.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? "还原 Codex 路由失败。" : "还原 Codex 路由失败：\(trimmed)"
+            return trimmed.isEmpty ? L10n.tr("还原 Codex 路由失败。") : L10n.tr("还原 Codex 路由失败：\(trimmed)")
         }
     }
 

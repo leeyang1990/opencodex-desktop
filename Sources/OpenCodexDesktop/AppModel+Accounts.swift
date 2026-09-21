@@ -23,12 +23,12 @@ extension AppModel {
 
     func selectCodexAccount(_ account: CodexAccount) async {
         await performAccountChange { try await self.client.selectCodexAccount(account.id) }
-        operationMessage = "已切换到 \(account.displayName)"
+        operationMessage = L10n.tr("已切换到 \(account.displayName)")
     }
 
     func setCodexAccountPaused(_ account: CodexAccount, paused: Bool) async {
         await performAccountChange { try await self.client.setCodexAccountPaused(account.id, paused: paused) }
-        operationMessage = paused ? "已暂停 \(account.displayName)" : "已恢复 \(account.displayName)"
+        operationMessage = paused ? L10n.tr("已暂停 \(account.displayName)") : L10n.tr("已恢复 \(account.displayName)")
     }
 
     // MARK: - Scheduling
@@ -36,7 +36,7 @@ extension AppModel {
     func setCodexPoolStrategy(_ strategy: String, stickyLimit: Int? = nil) async {
         let sticky = min(max(stickyLimit ?? scheduling?.accountPoolStickyLimit ?? 1, 1), 100)
         await performAccountChange { try await self.client.setCodexPoolStrategy(strategy, stickyLimit: sticky) }
-        operationMessage = "调度策略已改为\(CodexAccountScheduling.strategyTitle(strategy))"
+        operationMessage = L10n.tr("调度策略已改为\(CodexAccountScheduling.strategyTitle(strategy))")
     }
 
     // MARK: - Sign-in
@@ -49,11 +49,11 @@ extension AppModel {
         do {
             let started = try await startLoginOperation()
             guard let flowID = started.flowId else {
-                accountErrorMessage = "内核未返回登录流程标识"
+                accountErrorMessage = L10n.tr("内核未返回登录流程标识")
                 return
             }
             loginFlowID = flowID
-            loginMessage = "已打开浏览器，请在浏览器中完成 ChatGPT 登录…"
+            loginMessage = L10n.tr("已打开浏览器，请在浏览器中完成 ChatGPT 登录…")
             await pollLogin(flowID: flowID)
         } catch {
             accountErrorMessage = error.localizedDescription
@@ -83,26 +83,26 @@ extension AppModel {
                 loginFlowID = nil
                 loginMessage = nil
                 await loadCodexAccounts()
-                operationMessage = "已添加账号 \(status.email ?? "")".trimmingCharacters(in: .whitespaces)
+                operationMessage = L10n.tr("已添加账号 \(status.email ?? "")").trimmingCharacters(in: .whitespaces)
                 eventStore.append(.codexAccountAdded, detail: status.email)
                 return
             case "error":
                 loginFlowID = nil
                 loginMessage = nil
-                accountErrorMessage = status.error ?? "登录失败"
+                accountErrorMessage = status.error ?? L10n.tr("登录失败")
                 return
             case "expired", "cancelled":
                 loginFlowID = nil
                 loginMessage = nil
-                accountErrorMessage = status.status == "expired" ? "登录流程已过期，请重试" : nil
+                accountErrorMessage = status.status == "expired" ? L10n.tr("登录流程已过期，请重试") : nil
                 return
             default:
-                loginMessage = status.email.map { "等待 \($0) 授权…" } ?? "等待浏览器授权…"
+                loginMessage = status.email.map { L10n.tr("等待 \($0) 授权…") } ?? L10n.tr("等待浏览器授权…")
             }
         }
         loginFlowID = nil
         loginMessage = nil
-        accountErrorMessage = "登录等待超时，请重新发起"
+        accountErrorMessage = L10n.tr("登录等待超时，请重新发起")
     }
 
     private func performAccountChange(_ change: () async throws -> Void) async {

@@ -74,7 +74,7 @@ final class EnvironmentDiagnosticsTests: XCTestCase {
         )
 
         XCTAssertEqual(report.item(.codexRuntime)?.state, .pending)
-        XCTAssertEqual(report.item(.codexRuntime)?.title, "Codex CLI 安装")
+        XCTAssertEqual(report.item(.codexRuntime)?.title, L10n.tr("Codex CLI 安装"))
     }
 
     func testUninstalledCoreProducesPendingItemsInsteadOfFalsePermissionFailure() {

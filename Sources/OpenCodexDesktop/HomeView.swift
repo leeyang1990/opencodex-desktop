@@ -36,10 +36,10 @@ struct HomeView: View {
 
     private var greeting: String {
         switch model.connectionState {
-        case .online: "OpenCodex 已就绪"
-        case .checking: "正在连接本机代理"
-        case .offline: "本机代理未运行"
-        case .unauthorized: "需要重新授权"
+        case .online: L10n.tr("OpenCodex 已就绪")
+        case .checking: L10n.tr("正在连接本机代理")
+        case .offline: L10n.tr("本机代理未运行")
+        case .unauthorized: L10n.tr("需要重新授权")
         }
     }
 
@@ -51,7 +51,7 @@ struct HomeView: View {
                 iconBadge("bolt.horizontal.circle.fill", tint: AppPalette.success)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 8) {
-                        Text("本机代理")
+                        Text(L10n.tr("本机代理"))
                             .font(.title3.weight(.semibold))
                         Pill(
                             text: "v\(model.health?.version ?? model.coreManager.targetRelease.version)",
@@ -68,17 +68,17 @@ struct HomeView: View {
             }
 
             HStack(spacing: 8) {
-                Button("复制地址", systemImage: "doc.on.doc") {
+                Button(L10n.tr("复制地址"), systemImage: "doc.on.doc") {
                     copy(model.baseAddress + "/v1")
                 }
 
                 Spacer(minLength: 8)
 
-                Button("重启代理") { Task { await model.restartService() } }
+                Button(L10n.tr("重启代理")) { Task { await model.restartService() } }
                     .disabled(model.isRefreshing)
-                Button("停止", role: .destructive) { Task { await model.stopService() } }
+                Button(L10n.tr("停止"), role: .destructive) { Task { await model.stopService() } }
                     .disabled(model.isRefreshing)
-                    .help("停止代理、还原路由，并重启正在运行的 ChatGPT")
+                    .help(L10n.tr("停止代理、还原路由，并重启正在运行的 ChatGPT"))
             }
         }
         .cardStyle()
@@ -99,12 +99,12 @@ struct HomeView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 12)
-                Button("重启 ChatGPT") { Task { await model.restartChatGPT(reason: "首页") } }
+                Button(L10n.tr("重启 ChatGPT")) { Task { await model.restartChatGPT(reason: L10n.tr("首页")) } }
                     .disabled(model.isRestartingChatGPT)
             }
 
             if model.isChatGPTRestartPending {
-                Label("配置已更改，重启 ChatGPT 后生效。", systemImage: "exclamationmark.triangle.fill")
+                Label(L10n.tr("配置已更改，重启 ChatGPT 后生效。"), systemImage: "exclamationmark.triangle.fill")
                     .font(.callout)
                     .foregroundStyle(AppPalette.warning)
             }
@@ -116,9 +116,9 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("使用记录")
+                    Text(L10n.tr("使用记录"))
                         .font(.title3.weight(.semibold))
-                    Text("最近 7 天")
+                    Text(L10n.tr("最近 7 天"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -128,27 +128,27 @@ struct HomeView: View {
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
-                .help("刷新使用记录")
+                .help(L10n.tr("刷新使用记录"))
                 .disabled(model.isLoadingUsage)
             }
 
             if let report = model.usageReport {
                 HStack(spacing: 0) {
-                    usageMetric("请求", compact(report.summary.requests), "arrow.up.right")
+                    usageMetric(L10n.tr("请求"), compact(report.summary.requests), "arrow.up.right")
                     Divider().frame(height: 34).padding(.horizontal, 18)
                     usageMetric("Token", compact(report.summary.totalTokens), "text.word.spacing")
                     Divider().frame(height: 34).padding(.horizontal, 18)
-                    usageMetric("计量覆盖", percent(report.summary.coverageRatio), "checkmark.circle")
+                    usageMetric(L10n.tr("计量覆盖"), percent(report.summary.coverageRatio), "checkmark.circle")
                     if let cost = report.summary.estimatedCostUsd {
                         Divider().frame(height: 34).padding(.horizontal, 18)
-                        usageMetric("估算费用", cost.formatted(.currency(code: "USD")), "dollarsign.circle")
+                        usageMetric(L10n.tr("估算费用"), cost.formatted(.currency(code: "USD")), "dollarsign.circle")
                     }
                 }
 
                 Chart(report.days) { day in
                     AreaMark(
-                        x: .value("日期", day.shortDate),
-                        y: .value("请求", day.requests)
+                        x: .value(L10n.tr("日期"), day.shortDate),
+                        y: .value(L10n.tr("请求"), day.requests)
                     )
                     .foregroundStyle(
                         LinearGradient(
@@ -161,18 +161,18 @@ struct HomeView: View {
                     .accessibilityHidden(true)
 
                     LineMark(
-                        x: .value("日期", day.shortDate),
-                        y: .value("请求", day.requests)
+                        x: .value(L10n.tr("日期"), day.shortDate),
+                        y: .value(L10n.tr("请求"), day.requests)
                     )
                     .foregroundStyle(AppPalette.accent)
                     .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
                     .interpolationMethod(.catmullRom)
                     .accessibilityLabel(day.shortDate)
-                    .accessibilityValue("\(day.requests) 次请求")
+                    .accessibilityValue(L10n.tr("\(day.requests) 次请求"))
 
                     PointMark(
-                        x: .value("日期", day.shortDate),
-                        y: .value("请求", day.requests)
+                        x: .value(L10n.tr("日期"), day.shortDate),
+                        y: .value(L10n.tr("请求"), day.requests)
                     )
                     .foregroundStyle(AppPalette.accent)
                     .symbolSize(day.requests > 0 ? 24 : 0)
@@ -193,15 +193,15 @@ struct HomeView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
                 .glassInsetSurface()
-                .accessibilityLabel("最近七天请求趋势")
+                .accessibilityLabel(L10n.tr("最近七天请求趋势"))
             } else if model.isLoadingUsage {
-                ProgressView("正在读取使用记录…")
+                ProgressView(L10n.tr("正在读取使用记录…"))
                     .frame(maxWidth: .infinity, minHeight: 118)
             } else {
                 ContentUnavailableView(
-                    "暂无使用记录",
+                    L10n.tr("暂无使用记录"),
                     systemImage: "chart.xyaxis.line",
-                    description: Text(model.usageErrorMessage ?? "使用代理后显示统计。")
+                    description: Text(model.usageErrorMessage ?? L10n.tr("使用代理后显示统计。"))
                 )
                 .frame(maxWidth: .infinity, minHeight: 118)
             }
@@ -222,7 +222,7 @@ struct HomeView: View {
     }
 
     private func compact<T: BinaryInteger>(_ value: T) -> String {
-        Double(value).formatted(.number.notation(.compactName).precision(.fractionLength(0...1)))
+        Double(value).formatted(.number.locale(L10n.locale).notation(.compactName).precision(.fractionLength(0...1)))
     }
 
     private func percent(_ value: Double) -> String {
@@ -243,13 +243,13 @@ struct HomeView: View {
                     .opacity(0.16)
             )
 
-            Text(model.connectionState == .unauthorized ? "连接未授权" : "代理未启动")
+            Text(model.connectionState == .unauthorized ? L10n.tr("连接未授权") : L10n.tr("代理未启动"))
                 .font(.title3.weight(.semibold))
 
             Text(
                 model.connectionState == .unauthorized
-                    ? "请重启代理，或打开诊断检查授权。"
-                    : "退出 App 不会停止代理。"
+                    ? L10n.tr("请重启代理，或打开诊断检查授权。")
+                    : L10n.tr("退出 App 不会停止代理。")
             )
             .font(.callout)
             .foregroundStyle(.secondary)
@@ -257,10 +257,10 @@ struct HomeView: View {
             .frame(maxWidth: 380)
 
             HStack(spacing: 8) {
-                Button("启动代理") { Task { await model.startService() } }
+                Button(L10n.tr("启动代理")) { Task { await model.startService() } }
                     .shellButtonStyle(prominent: true)
                     .disabled(model.isRefreshing)
-                Button("诊断") { openWindow(id: ShellWindow.diagnostics) }
+                Button(L10n.tr("诊断")) { openWindow(id: ShellWindow.diagnostics) }
             }
         }
         .frame(maxWidth: .infinity)
@@ -272,9 +272,9 @@ struct HomeView: View {
 
     private var routeDetail: String {
         switch model.settings?.isCodexRoutingInjected {
-        case true: "Codex 使用本机代理"
-        case false: "Codex 使用原生路由"
-        default: "正在读取路由状态…"
+        case true: L10n.tr("Codex 使用本机代理")
+        case false: L10n.tr("Codex 使用原生路由")
+        default: L10n.tr("正在读取路由状态…")
         }
     }
 
@@ -289,6 +289,6 @@ struct HomeView: View {
     private func copy(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-        model.operationMessage = "已复制 \(text)"
+        model.operationMessage = L10n.tr("已复制 \(text)")
     }
 }

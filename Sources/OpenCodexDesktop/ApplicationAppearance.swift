@@ -21,7 +21,7 @@ enum ApplicationAppearanceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .activationPolicyFailed:
-            "无法更新 Dock 显示状态，请重新启动客户端后再试。"
+            L10n.tr("无法更新 Dock 显示状态，请重新启动客户端后再试。")
         }
     }
 }

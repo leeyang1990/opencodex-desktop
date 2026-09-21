@@ -44,9 +44,9 @@ final class ShellNavigationTests: XCTestCase {
 
     func testShellContainsOnlyTheConfigurationSurfaces() {
         XCTAssertEqual(SidebarDestination.allCases, [.home, .accounts, .channels, .subagents, .settings])
-        XCTAssertEqual(SidebarDestination.accounts.title, "账号")
-        XCTAssertEqual(SidebarDestination.channels.title, "渠道")
-        XCTAssertEqual(SidebarDestination.subagents.title, "子代理")
-        XCTAssertEqual(SidebarDestination.settings.title, "设置")
+        XCTAssertEqual(SidebarDestination.accounts.title, L10n.tr("账号"))
+        XCTAssertEqual(SidebarDestination.channels.title, L10n.tr("渠道"))
+        XCTAssertEqual(SidebarDestination.subagents.title, L10n.tr("子代理"))
+        XCTAssertEqual(SidebarDestination.settings.title, L10n.tr("设置"))
     }
 }

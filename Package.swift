@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "OpenCodexDesktop",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "OpenCodexDesktop", targets: ["OpenCodexDesktop"]),
@@ -10,7 +11,8 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "OpenCodexDesktop",
-            path: "Sources/OpenCodexDesktop"
+            path: "Sources/OpenCodexDesktop",
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "OpenCodexDesktopTests",

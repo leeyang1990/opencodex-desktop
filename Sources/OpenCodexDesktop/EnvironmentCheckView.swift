@@ -6,9 +6,9 @@ struct FirstLaunchEnvironmentCheckView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
-                Label("启动环境检查", systemImage: "checkmark.shield.fill")
+                Label(L10n.tr("启动环境检查"), systemImage: "checkmark.shield.fill")
                     .font(.title2.weight(.semibold))
-                Text("检查本机权限、内核与 Codex CLI。")
+                Text(L10n.tr("检查本机权限、内核与 Codex CLI。"))
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -16,19 +16,19 @@ struct FirstLaunchEnvironmentCheckView: View {
             EnvironmentCheckList(report: model.environmentReport)
 
             if model.environmentReport.needsAttention {
-                Label("部分项目需处理，可在“诊断”中重试。", systemImage: "exclamationmark.triangle.fill")
+                Label(L10n.tr("部分项目需处理，可在“诊断”中重试。"), systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(AppPalette.warning)
             } else {
-                Label("检查通过", systemImage: "checkmark.circle.fill")
+                Label(L10n.tr("检查通过"), systemImage: "checkmark.circle.fill")
                     .font(.caption)
                     .foregroundStyle(AppPalette.success)
             }
 
             HStack {
-                Button("重新检查") { model.runEnvironmentCheck() }
+                Button(L10n.tr("重新检查")) { model.runEnvironmentCheck() }
                 Spacer()
-                Button("完成") { model.completeFirstLaunchEnvironmentCheck() }
+                Button(L10n.tr("完成")) { model.completeFirstLaunchEnvironmentCheck() }
                     .buttonStyle(.borderedProminent)
             }
         }
@@ -46,7 +46,7 @@ struct EnvironmentCheckList: View {
             if report.items.isEmpty {
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
-                    Text("正在检查运行环境…")
+                    Text(L10n.tr("正在检查运行环境…"))
                         .foregroundStyle(.secondary)
                     Spacer()
                 }

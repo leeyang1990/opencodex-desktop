@@ -2,6 +2,30 @@
 
 All notable changes to OpenCodex Desktop are documented here. The project follows semantic versioning for tagged releases.
 
+## 0.10.3 - 2026-09-21
+
+### 中文
+
+- 原生 App 支持中英文，自动跟随 macOS 首选语言，也支持系统中的单个 App 语言设置；没有匹配的语言时使用英文。更改语言后重新打开 App 即可。
+- 补全导航、账号、渠道、子代理、设置、菜单栏、通知、诊断与错误提示，共 528 条本地化文案。
+- 数字统计跟随界面语言显示；渠道名称、模型 ID、路径及服务端原始消息保持原样，不改动账号或路由配置。
+- 中英文资源随 App 一起打包，不依赖开发目录。增加语言选择、动态插值安全、翻译完整性和快捷指令资源测试。
+- 已实机检查中文、英文界面，验证设置和添加渠道表单的英文布局。
+
+### English
+
+- Localize the native app in English and Simplified Chinese, following macOS preferred languages and per-app language settings, with English as the fallback. Reopen the app after changing languages.
+- Translate 528 app-owned strings across navigation, accounts, channels, subagents, settings, menus, notifications, diagnostics and errors.
+- Format usage counts for the interface language. Preserve channel names, model IDs, paths and upstream messages without changing account or routing configuration.
+- Package both languages inside the app without depending on development files. Add tests for language selection, safe interpolation, catalog completeness and shortcut resources.
+- Verify both languages in the installed app, including English settings and channel-form layouts.
+
+### Downloads / 下载
+
+- Apple Silicon (arm64), macOS 14+. DMG and ZIP include SHA-256 checksum files.
+- Ad-hoc signed, not Apple-notarized. Core is installed separately; credentials, configuration and logs are not bundled.
+- 仅提供 Apple Silicon 版本；安装包为临时签名，未经 Apple 公证。Core 单独安装，不包含账号、密钥、配置或日志。
+
 ## 0.10.2 - 2026-09-21
 
 ### Added

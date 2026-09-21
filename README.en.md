@@ -68,6 +68,8 @@ Both interfaces operate on the same Core-owned configuration; Desktop keeps no p
 
 Requires macOS 14 or later. Builds are currently available for Apple Silicon (arm64) only.
 
+The interface follows your macOS preferred language, including per-app language settings. English and Simplified Chinese are supported, with English as the fallback. Reopen the app after changing languages.
+
 Download the DMG from [GitHub Releases](https://github.com/leeyang1990/opencodex-desktop/releases/latest) and drag the app into Applications; the ZIP is available for portable use. Releases use free ad-hoc signing and are not Apple-notarized, so the first launch may require right-clicking the app and choosing **Open**. Verify the SHA-256 attachment when possible.
 
 ## Behavior Boundaries

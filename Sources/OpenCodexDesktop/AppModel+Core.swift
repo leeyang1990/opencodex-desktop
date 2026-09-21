@@ -10,9 +10,9 @@ extension AppModel {
             try await coreManager.start(port: connectionPort)
             try await waitForServiceReadiness(timeout: AppConstants.Service.startupTimeout)
             await refresh(showSpinner: false)
-            guard isOnline else { throw CoreManagerError.launchFailed("内核已响应，但管理接口尚未就绪") }
+            guard isOnline else { throw CoreManagerError.launchFailed(L10n.tr("内核已响应，但管理接口尚未就绪")) }
             coreManager.recordSuccessfulLaunch(version: coreManager.targetRelease.version)
-            operationMessage = "OpenCodex 内核已启动"
+            operationMessage = L10n.tr("OpenCodex 内核已启动")
             eventStore.append(.coreStarted, detail: "Core \(health?.version ?? coreManager.targetRelease.version)")
             await reapplyCodexRoutingIfNeeded()
             await loadConfigurationSurfaces()
@@ -45,29 +45,29 @@ extension AppModel {
                 // The stop endpoint also restores routing. Verify the final on-disk state with
                 // the Core's idempotent CLI after exit, including the already-offline case.
                 try await restoreRoutingOperation()
-                eventStore.append(.codexRoutingRestored, detail: "停止代理")
+                eventStore.append(.codexRoutingRestored, detail: L10n.tr("停止代理"))
                 if chatGPT.isRunning {
                     isChatGPTRestartPending = true
-                    guard await restartChatGPT(reason: "停止代理") else {
-                        errorMessage = "代理已停止，路由已还原；\(errorMessage ?? "请手动重启 ChatGPT。")"
+                    guard await restartChatGPT(reason: L10n.tr("停止代理")) else {
+                        errorMessage = L10n.tr("代理已停止，路由已还原；\(errorMessage ?? L10n.tr("请手动重启 ChatGPT。"))")
                         return false
                     }
-                    operationMessage = "代理已停止，路由已还原，ChatGPT 已重启"
+                    operationMessage = L10n.tr("代理已停止，路由已还原，ChatGPT 已重启")
                 } else {
                     isChatGPTRestartPending = false
-                    operationMessage = "代理已停止，路由已还原"
+                    operationMessage = L10n.tr("代理已停止，路由已还原")
                 }
             } else {
-                operationMessage = "内核已停止"
+                operationMessage = L10n.tr("内核已停止")
             }
             return true
         } catch {
             await refresh(showSpinner: false)
             errorMessage =
                 coreStopped
-                ? "代理已停止，但路由还原失败；未重启 ChatGPT。\(error.localizedDescription)"
-                : "停止未完成或路由还原未确认；未重启 ChatGPT。\(error.localizedDescription)"
-            if coreStopped { eventStore.append(.codexRoutingRestoreFailed, detail: "停止代理时还原失败") }
+                ? L10n.tr("代理已停止，但路由还原失败；未重启 ChatGPT。\(error.localizedDescription)")
+                : L10n.tr("停止未完成或路由还原未确认；未重启 ChatGPT。\(error.localizedDescription)")
+            if coreStopped { eventStore.append(.codexRoutingRestoreFailed, detail: L10n.tr("停止代理时还原失败")) }
             return false
         }
     }
@@ -79,7 +79,7 @@ extension AppModel {
         try await Task.sleep(for: AppConstants.Service.gracefulStopDelay)
         await coreManager.stop()
         guard !coreManager.ownsRunningProcess else {
-            throw CoreManagerError.launchFailed("内核进程仍在运行，请稍后重试。")
+            throw CoreManagerError.launchFailed(L10n.tr("内核进程仍在运行，请稍后重试。"))
         }
         let deadline = ContinuousClock.now + AppConstants.Service.terminateTimeout
         while ContinuousClock.now < deadline {
@@ -87,7 +87,7 @@ extension AppModel {
             if try await client.isProxyListenerStopped() { return }
             try await Task.sleep(for: AppConstants.Service.healthPollInterval)
         }
-        throw CoreManagerError.launchFailed("代理端口仍在响应，未确认内核已停止。")
+        throw CoreManagerError.launchFailed(L10n.tr("代理端口仍在响应，未确认内核已停止。"))
     }
 
     func openConfigFolder() {
@@ -109,7 +109,7 @@ extension AppModel {
             }
             try await coreManager.installTargetCore()
             eventStore.append(.coreInstalled, detail: "Core \(coreManager.targetRelease.version)")
-            operationMessage = "OpenCodex Core \(coreManager.targetRelease.version) 已安装"
+            operationMessage = L10n.tr("OpenCodex Core \(coreManager.targetRelease.version) 已安装")
             await startService()
             if !isOnline, let recoveryRelease,
                 recoveryRelease.version != coreManager.targetRelease.version
@@ -121,7 +121,7 @@ extension AppModel {
             if let recoveryRelease {
                 await recoverCore(using: recoveryRelease)
                 if isOnline {
-                    operationMessage = "安装失败，已恢复 Core \(recoveryRelease.version)"
+                    operationMessage = L10n.tr("安装失败，已恢复 Core \(recoveryRelease.version)")
                     errorMessage = nil
                     return
                 }
@@ -135,7 +135,7 @@ extension AppModel {
         await recoverCore(using: release)
         if isOnline {
             eventStore.append(.coreRollback, detail: "Core \(release.version)")
-            operationMessage = "已回滚到 Core \(release.version)"
+            operationMessage = L10n.tr("已回滚到 Core \(release.version)")
         }
     }
 
@@ -146,7 +146,7 @@ extension AppModel {
             guard await stopService() else { return }
             try await coreManager.uninstallTargetCore()
             await refresh(showSpinner: false)
-            operationMessage = "内核已卸载，配置与账号数据已保留"
+            operationMessage = L10n.tr("内核已卸载，配置与账号数据已保留")
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -179,7 +179,7 @@ extension AppModel {
             try await Task.sleep(for: AppConstants.Service.healthPollInterval)
         }
         if let error = lastError as? CoreManagerError { throw error }
-        throw CoreManagerError.launchFailed("内核未在限定时间内就绪，请查看内核日志")
+        throw CoreManagerError.launchFailed(L10n.tr("内核未在限定时间内就绪，请查看内核日志"))
     }
 
     private func recoverCore(using release: CoreRelease) async {

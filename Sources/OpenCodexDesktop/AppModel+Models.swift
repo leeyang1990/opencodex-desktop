@@ -65,7 +65,7 @@ extension AppModel {
             // The Core rewrites the Codex catalog on every visibility change, and a running
             // ChatGPT keeps the catalog it read at launch.
             if chatGPT.isRunning { isChatGPTRestartPending = true }
-            operationMessage = enabled ? "已启用所选模型" : "已隐藏所选模型"
+            operationMessage = enabled ? L10n.tr("已启用所选模型") : L10n.tr("已隐藏所选模型")
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription

@@ -13,13 +13,13 @@ enum OpenCodexAPIError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .invalidAddress: "连接地址无效"
-        case .remoteManagementUnsupported: "客户端只允许连接本机回环地址，以防管理令牌被发送到其他设备"
-        case .offline: "OpenCodex 服务未运行"
-        case .missingAdminToken: "找不到本机管理令牌，请先启动一次 OpenCodex"
-        case .unauthorized: "管理令牌无效，请检查 OpenCodex 配置"
+        case .invalidAddress: L10n.tr("连接地址无效")
+        case .remoteManagementUnsupported: L10n.tr("客户端只允许连接本机回环地址，以防管理令牌被发送到其他设备")
+        case .offline: L10n.tr("OpenCodex 服务未运行")
+        case .missingAdminToken: L10n.tr("找不到本机管理令牌，请先启动一次 OpenCodex")
+        case .unauthorized: L10n.tr("管理令牌无效，请检查 OpenCodex 配置")
         case let .server(_, message): message
-        case .invalidResponse: "服务返回了无法识别的数据"
+        case .invalidResponse: L10n.tr("服务返回了无法识别的数据")
         case let .transport(message): message
         case let .operationFailed(message): message
         }
@@ -126,7 +126,7 @@ actor OpenCodexAPIClient {
         let response: APIAcknowledgement = try await request(
             path: "/api/stop", method: "POST", body: Optional<String>.none)
         guard response.success == true else {
-            throw OpenCodexAPIError.operationFailed(response.message ?? "内核未确认停止及路由还原成功。")
+            throw OpenCodexAPIError.operationFailed(response.message ?? L10n.tr("内核未确认停止及路由还原成功。"))
         }
     }
 
@@ -179,7 +179,7 @@ actor OpenCodexAPIClient {
             body: body
         )
         guard response.ok != false else {
-            throw OpenCodexAPIError.server(status: 200, message: response.message ?? "模型可见性更新被拒绝")
+            throw OpenCodexAPIError.server(status: 200, message: response.message ?? L10n.tr("模型可见性更新被拒绝"))
         }
     }
 
@@ -247,7 +247,7 @@ actor OpenCodexAPIClient {
         let body = ChannelCreation(name: name, provider: payload, setDefault: setDefault)
         let response: APIAcknowledgement = try await request(path: "/api/providers", method: "POST", body: body)
         guard response.success == true else {
-            throw OpenCodexAPIError.operationFailed("渠道保存未获确认")
+            throw OpenCodexAPIError.operationFailed(L10n.tr("渠道保存未获确认"))
         }
     }
 
@@ -269,7 +269,7 @@ actor OpenCodexAPIClient {
             body: ChannelDefaultPatch(setDefault: true)
         )
         guard response.success == true else {
-            throw OpenCodexAPIError.operationFailed("默认渠道修改未获确认")
+            throw OpenCodexAPIError.operationFailed(L10n.tr("默认渠道修改未获确认"))
         }
     }
 
@@ -281,7 +281,7 @@ actor OpenCodexAPIClient {
             body: ChannelKeyCreation(name: name, key: key, label: label)
         )
         guard response.ok == true else {
-            throw OpenCodexAPIError.server(status: 200, message: "API Key 写入被拒绝")
+            throw OpenCodexAPIError.server(status: 200, message: L10n.tr("API Key 写入被拒绝"))
         }
     }
 
