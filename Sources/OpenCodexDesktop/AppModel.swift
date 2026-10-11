@@ -113,7 +113,7 @@ final class AppModel: NSObject, ObservableObject {
         try await self.stopCoreForShutdown()
     }
     /// Quit only owns the child launched by this Desktop session, even if its API is unhealthy.
-    lazy var stopOwnedCoreOnExitOperation: () async throws -> Bool = { [unowned self] in
+    lazy var stopOwnedCoreOnExitOperation: @MainActor () async throws -> Bool = { [unowned self] in
         let wasRunning = self.coreManager.ownsRunningProcess
         await self.coreManager.stop()
         guard !self.coreManager.ownsRunningProcess else {
@@ -121,7 +121,7 @@ final class AppModel: NSObject, ObservableObject {
         }
         return wasRunning
     }
-    lazy var needsExitCleanup: () -> Bool = { [unowned self] in
+    lazy var needsExitCleanup: @MainActor () -> Bool = { [unowned self] in
         self.coreManager.installationState.isInstalled || self.coreManager.ownsRunningProcess
             || self.settings?.isCodexRoutingInjected == true || self.exitCleanupNeedsClientRestart
     }
