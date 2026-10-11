@@ -2,15 +2,17 @@
 
 All notable changes to OpenCodex Desktop are documented here. The project follows semantic versioning for tagged releases.
 
-## 0.10.5 - 2026-10-11
+## 0.10.6 - 2026-10-11
 
 ### 中文
 
 - 移除设置页中无需用户操作的“退出清理 / 始终执行”说明。退出时仍自动停止本应用启动的 Core、恢复 Codex 原来的 base URL，并重启正在运行的 Codex。
+- 修复 Core 命令快速退出时偶发丢失输出的问题，避免路由恢复成功后被误判为失败；继承输出管道的子进程不会阻塞退出。
 
 ### English
 
 - Remove the informational "Quit Cleanup / Always enabled" row from Settings. Quitting still automatically stops the Core started by Desktop, restores the original Codex base URL, and restarts Codex if it is running.
+- Preserve output when Core commands exit quickly, preventing successful routing restoration from being reported as a failure. Descendants inheriting the output pipe do not block completion.
 
 ### Downloads / 下载
 

@@ -162,6 +162,42 @@ final class ManagedCLIRunnerTests: XCTestCase {
         XCTAssertTrue(result.output.contains("refused"))
     }
 
+    func testFastCommandsKeepTheirCompleteOutput() async {
+        let expected = String(repeating: "output-before-exit\n", count: 1_000)
+        let commands = (0..<24).map { _ in
+            makeCLI(script: "printf '%s' '\(expected)'", timeout: .seconds(10))
+        }
+        await withTaskGroup(of: ManagedCLIResult.self) { group in
+            for command in commands { group.addTask { await ManagedCLIRunner.run(command) } }
+            for await result in group {
+                XCTAssertTrue(result.succeeded)
+                XCTAssertEqual(result.output, expected)
+            }
+        }
+    }
+
+    func testInheritedOutputPipeDoesNotDelayCommandCompletion() async throws {
+        let pidFile = FileManager.default.temporaryDirectory.appendingPathComponent("ocx-child-\(UUID()).pid")
+        defer {
+            if let text = try? String(contentsOf: pidFile, encoding: .utf8),
+                let pid = Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)), pid > 0
+            {
+                kill(pid, SIGTERM)
+            }
+            try? FileManager.default.removeItem(at: pidFile)
+        }
+        let cli = makeCLI(
+            script: "sleep 30 & echo $! > '\(pidFile.path)'; printf '%s' 'complete'; exit 0",
+            timeout: .seconds(10)
+        )
+        let started = ContinuousClock.now
+        let result = await ManagedCLIRunner.run(cli)
+
+        XCTAssertTrue(result.succeeded)
+        XCTAssertEqual(result.output, "complete")
+        XCTAssertLessThan(ContinuousClock.now - started, .seconds(5))
+    }
+
     /// A hung command must be signalled instead of blocking the quit path forever.
     func testRunnerStopsACommandThatExceedsItsBudget() async {
         let cli = makeCLI(script: "sleep 30", timeout: .milliseconds(600))

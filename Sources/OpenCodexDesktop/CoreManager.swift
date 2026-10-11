@@ -503,40 +503,47 @@ enum ManagedCLIRunner {
         process.standardError = pipe
         process.standardInput = FileHandle.nullDevice
 
+        // A descendant may inherit stdout and keep the pipe open after the CLI exits. Read only
+        // available bytes, on the same queue as completion, so exit cannot race the final drain.
+        let descriptor = reader.fileDescriptor
+        let flags = fcntl(descriptor, F_GETFL)
+        guard flags >= 0, fcntl(descriptor, F_SETFL, flags | O_NONBLOCK) == 0 else {
+            try? reader.close()
+            try? pipe.fileHandleForWriting.close()
+            return .launchFailure("Could not configure command output capture")
+        }
+        let queue = DispatchQueue(label: "app.opencodex.desktop.core-cli")
         let state = RunnerState()
         process.terminationHandler = { finished in
-            state.finish(with: finished.terminationStatus)
+            queue.async {
+                state.drainAvailableOutput(from: descriptor)
+                state.finish(with: finished.terminationStatus)
+            }
         }
         do {
             try process.run()
         } catch {
             try? reader.close()
+            try? pipe.fileHandleForWriting.close()
             return .launchFailure(error.localizedDescription)
         }
+        try? pipe.fileHandleForWriting.close()
 
-        let handle = reader
-        // The reader owns one serial queue and blocks in `read` until the child closes the pipe,
-        // so the deadline needs a queue of its own: sharing it would park the timeout behind a
-        // hung command and the budget would never fire.
-        let readerQueue = DispatchQueue(label: "app.opencodex.desktop.core-cli.reader")
-        let deadlineQueue = DispatchQueue(label: "app.opencodex.desktop.core-cli.deadline")
-        readerQueue.async {
-            while true {
-                let chunk = (try? handle.read(upToCount: 4_096)) ?? Data()
-                if chunk.isEmpty { break }
-                state.append(chunk)
-            }
-            state.markPipeClosed()
-            if state.isFinished { try? handle.close() }
+        let outputSource = DispatchSource.makeReadSource(fileDescriptor: descriptor, queue: queue)
+        outputSource.setEventHandler {
+            state.drainAvailableOutput(from: descriptor)
+            if state.outputAtEOF { outputSource.cancel() }
         }
+        outputSource.setCancelHandler { try? reader.close() }
+        outputSource.resume()
 
-        let timer = DispatchSource.makeTimerSource(queue: deadlineQueue)
+        let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now() + cli.timeout.dispatchInterval)
         timer.setEventHandler {
             guard !state.isFinished else { return }
             state.markTimedOut()
             process.terminate()
-            deadlineQueue.asyncAfter(deadline: .now() + AppConstants.Service.forceKillTimeout.dispatchInterval) {
+            queue.asyncAfter(deadline: .now() + AppConstants.Service.forceKillTimeout.dispatchInterval) {
                 guard !state.isFinished, process.isRunning else { return }
                 Darwin.kill(process.processIdentifier, SIGKILL)
             }
@@ -547,7 +554,7 @@ enum ManagedCLIRunner {
             state.install(continuation)
         }
         timer.cancel()
-        try? handle.close()
+        outputSource.cancel()
         return ManagedCLIResult(
             terminated: status != nil,
             timedOut: state.timedOut,
@@ -565,8 +572,10 @@ enum ManagedCLIRunner {
         private var continuation: CheckedContinuation<Int32?, Never>?
         private var exitStatus: Int32?
         private var buffer = Data()
-        private var pipeClosed = false
         private var didTimeOut = false
+        // Accessed only by the serial output/completion queue. Once closed, never read this
+        // descriptor again: the OS may reuse its number before the process termination callback.
+        private(set) var outputAtEOF = false
 
         var output: Data {
             lock.lock()
@@ -596,7 +605,22 @@ enum ManagedCLIRunner {
             lock.lock()
             defer { lock.unlock() }
             guard buffer.count < Self.maximumBytes else { return }
-            buffer.append(chunk)
+            buffer.append(chunk.prefix(Self.maximumBytes - buffer.count))
+        }
+
+        /// Bound each drain so a continuously writing descendant cannot starve the deadline.
+        func drainAvailableOutput(from descriptor: Int32) {
+            guard !outputAtEOF else { return }
+            var bytes = [UInt8](repeating: 0, count: 4_096)
+            var drained = 0
+            while drained < Self.maximumBytes {
+                let count = bytes.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress, $0.count) }
+                if count < 0, errno == EINTR { continue }
+                if count == 0 { outputAtEOF = true }
+                guard count > 0 else { return }
+                append(Data(bytes.prefix(count)))
+                drained += count
+            }
         }
 
         func install(_ continuation: CheckedContinuation<Int32?, Never>) {
@@ -610,25 +634,14 @@ enum ManagedCLIRunner {
             continuation.resume(returning: status)
         }
 
-        /// Records the exit status and reports whether the reader is still holding the wait open.
-        @discardableResult
-        func finish(with status: Int32) -> Bool {
+        /// Called only after draining output already written by the terminated CLI.
+        func finish(with status: Int32) {
             lock.lock()
             exitStatus = status
             let pending = continuation
             continuation = nil
-            let readerDone = pipeClosed
             lock.unlock()
-            // The exit status is authoritative; a pipe still held open by a grandchild must not
-            // delay the result, so the wait resumes as soon as the process is gone.
             pending?.resume(returning: status)
-            return readerDone
-        }
-
-        func markPipeClosed() {
-            lock.lock()
-            pipeClosed = true
-            lock.unlock()
         }
 
         private static let maximumBytes = 64 * 1_024
