@@ -2,6 +2,22 @@
 
 All notable changes to OpenCodex Desktop are documented here. The project follows semantic versioning for tagged releases.
 
+## 0.10.5 - 2026-10-11
+
+### 中文
+
+- 移除设置页中无需用户操作的“退出清理 / 始终执行”说明。退出时仍自动停止本应用启动的 Core、恢复 Codex 原来的 base URL，并重启正在运行的 Codex。
+
+### English
+
+- Remove the informational "Quit Cleanup / Always enabled" row from Settings. Quitting still automatically stops the Core started by Desktop, restores the original Codex base URL, and restarts Codex if it is running.
+
+### Downloads / 下载
+
+- Apple Silicon (arm64), macOS 14+. DMG and ZIP include SHA-256 checksum files.
+- Ad-hoc signed, not Apple-notarized. Core is installed separately; credentials, configuration and logs are not bundled.
+- 仅提供 Apple Silicon 版本；安装包为临时签名，未经 Apple 公证。Core 单独安装，不包含账号、密钥、配置或日志。
+
 ## 0.10.4 - 2026-10-11
 
 ### 中文

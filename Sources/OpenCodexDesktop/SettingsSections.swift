@@ -7,17 +7,6 @@ extension SettingsView {
             sectionHeader(L10n.tr("客户端"), symbol: "macwindow")
 
             settingRow(
-                title: L10n.tr("退出清理"),
-                detail: L10n.tr("停止本应用启动的 OpenCodex，恢复 Codex 原来的 base URL，并重启正在运行的 Codex。")
-            ) {
-                Text(L10n.tr("始终执行"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Divider()
-
-            settingRow(
                 title: L10n.tr("重启 ChatGPT"),
                 detail: L10n.tr("使路由与模型配置生效")
             ) {
