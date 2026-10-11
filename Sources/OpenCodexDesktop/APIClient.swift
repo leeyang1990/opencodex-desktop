@@ -229,6 +229,16 @@ actor OpenCodexAPIClient {
         )
     }
 
+    /// Consumes one reset credit for an account. The caller-owned UUID makes a retry of the same
+    /// UI operation idempotent inside Core, so an uncertain network response cannot double-spend.
+    func consumeCodexResetCredit(accountID: String, operationID: String) async throws -> ResetCreditConsumeResult {
+        try await request(
+            path: "/api/codex-auth/reset-credits/consume",
+            method: "POST",
+            body: ResetCreditConsumption(accountId: accountID, operationId: operationID)
+        )
+    }
+
     func setCodexPoolStrategy(_ strategy: String, stickyLimit: Int) async throws {
         let _: APIAcknowledgement = try await request(
             path: "/api/codex-auth/pool-strategy",
@@ -416,6 +426,11 @@ private struct CodexAccountSelection: Encodable {
 private struct CodexAccountPause: Encodable {
     let id: String
     let paused: Bool
+}
+
+private struct ResetCreditConsumption: Encodable {
+    let accountId: String
+    let operationId: String
 }
 
 private struct CodexPoolStrategy: Encodable {

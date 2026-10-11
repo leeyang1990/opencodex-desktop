@@ -5,6 +5,7 @@ import SwiftUI
 struct AccountsView: View {
     @EnvironmentObject private var model: AppModel
     @ObservedObject private var navigation = AppNavigation.shared
+    @State private var resetCreditAccount: CodexAccount?
 
     var body: some View {
         ScrollView {
@@ -27,6 +28,26 @@ struct AccountsView: View {
             .frame(maxWidth: .infinity, alignment: .top)
         }
         .task { await model.loadCodexAccounts() }
+        .confirmationDialog(
+            L10n.tr("使用充值卡？"),
+            isPresented: Binding(
+                get: { resetCreditAccount != nil },
+                set: { if !$0 { resetCreditAccount = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let account = resetCreditAccount {
+                Button(L10n.tr("使用 1 张充值卡"), role: .destructive) {
+                    resetCreditAccount = nil
+                    Task { await model.consumeResetCredit(for: account) }
+                }
+            }
+            Button(L10n.tr("取消"), role: .cancel) { resetCreditAccount = nil }
+        } message: {
+            if let account = resetCreditAccount {
+                Text(L10n.tr("将立即为 \(account.displayName) 重置当前额度。充值卡使用后无法撤销。"))
+            }
+        }
     }
 
     // MARK: - Pool
@@ -99,6 +120,13 @@ struct AccountsView: View {
                     if let plan = account.plan {
                         Pill(text: plan.uppercased(), color: AppPalette.accent)
                     }
+                    if account.resetCreditCount > 0 {
+                        Pill(
+                            text: L10n.tr("充值卡 ×\(account.resetCreditCount)"),
+                            color: AppPalette.warning,
+                            symbol: "creditcard.fill"
+                        )
+                    }
                     if account.isPaused {
                         Pill(text: L10n.tr("已暂停"), color: AppPalette.warning, symbol: "pause.fill")
                     }
@@ -122,6 +150,10 @@ struct AccountsView: View {
             Menu {
                 Button(L10n.tr("设为当前账号")) { Task { await model.selectCodexAccount(account) } }
                     .disabled(isActive || account.isPaused)
+                if account.resetCreditCount > 0 {
+                    Button(L10n.tr("使用充值卡")) { resetCreditAccount = account }
+                        .disabled(account.needsReauth == true)
+                }
                 Button(account.isPaused ? L10n.tr("恢复使用") : L10n.tr("暂停使用")) {
                     Task { await model.setCodexAccountPaused(account, paused: !account.isPaused) }
                 }
@@ -132,7 +164,7 @@ struct AccountsView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .frame(width: 26)
-            .disabled(model.isUpdatingAccounts)
+            .disabled(model.isUpdatingAccounts || model.consumingResetCreditAccountID != nil)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)

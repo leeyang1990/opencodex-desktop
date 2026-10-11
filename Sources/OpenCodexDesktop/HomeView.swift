@@ -249,7 +249,7 @@ struct HomeView: View {
             Text(
                 model.connectionState == .unauthorized
                     ? L10n.tr("请重启代理，或打开诊断检查授权。")
-                    : L10n.tr("退出 App 不会停止代理。")
+                    : L10n.tr("退出 App 时会停止本应用启动的内核。")
             )
             .font(.callout)
             .foregroundStyle(.secondary)

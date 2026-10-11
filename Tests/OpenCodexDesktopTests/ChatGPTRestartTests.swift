@@ -48,7 +48,7 @@ final class StopServiceCleanupTests: XCTestCase {
 
     func testExplicitStopRestoresBeforeRestartRegardlessOfQuitPreference() async {
         let (model, app) = makeModel()
-        model.restoresRoutingOnQuit = false
+        model.defaults.set(false, forKey: "restoreCodexRoutingOnQuit")
         model.errorMessage = "previous error"
         app.isRunning = true
         var steps: [String] = []
@@ -163,79 +163,6 @@ final class StopServiceCleanupTests: XCTestCase {
 }
 
 @MainActor
-final class ExitCleanupPlannerTests: XCTestCase {
-    func testRestoresOnceWhenEnabled() {
-        let planner = ExitCleanupPlanner(
-            alreadyCleanedThisSession: false,
-            preferenceEnabled: true,
-            lastCleanupAt: nil,
-            now: Date(timeIntervalSince1970: 1_000)
-        )
-
-        XCTAssertTrue(planner.shouldRestoreRouting)
-        XCTAssertFalse(planner.shouldQuitImmediately)
-    }
-
-    func testDisabledPreferenceQuitsWithoutRestoring() {
-        let planner = ExitCleanupPlanner(
-            alreadyCleanedThisSession: false,
-            preferenceEnabled: false,
-            lastCleanupAt: nil,
-            now: Date(timeIntervalSince1970: 1_000)
-        )
-
-        XCTAssertFalse(planner.shouldRestoreRouting)
-        XCTAssertTrue(planner.shouldQuitImmediately)
-    }
-
-    func testSecondQuitInSameSessionDoesNotRestoreAgain() {
-        let planner = ExitCleanupPlanner(
-            alreadyCleanedThisSession: true,
-            preferenceEnabled: true,
-            lastCleanupAt: nil,
-            now: Date(timeIntervalSince1970: 1_000)
-        )
-
-        XCTAssertFalse(planner.shouldRestoreRouting)
-    }
-
-    /// Logout and restart deliver one user decision twice; the second delivery must not delete a
-    /// freshly re-injected routing block.
-    func testRepeatedDeliveryOfOneQuitDoesNotRestoreTwice() {
-        let now = Date(timeIntervalSince1970: 10_000)
-        let planner = ExitCleanupPlanner(
-            alreadyCleanedThisSession: false,
-            preferenceEnabled: true,
-            lastCleanupAt: now.addingTimeInterval(-5),
-            now: now
-        )
-
-        XCTAssertFalse(planner.shouldRestoreRouting)
-    }
-
-    func testRestoresAgainAfterTheGuardInterval() {
-        let now = Date(timeIntervalSince1970: 10_000)
-        let planner = ExitCleanupPlanner(
-            alreadyCleanedThisSession: false,
-            preferenceEnabled: true,
-            lastCleanupAt: now.addingTimeInterval(-ExitCleanupPlanner.minimumIntervalBetweenRestores - 1),
-            now: now
-        )
-
-        XCTAssertTrue(planner.shouldRestoreRouting)
-    }
-
-    func testPreferenceDefaultsToRestoring() {
-        let suite = UserDefaults(suiteName: "ocx-tests-\(UUID().uuidString)")!
-        defer { suite.removePersistentDomain(forName: suite.description) }
-
-        XCTAssertTrue(DesktopPreferences.restoresRoutingOnQuit(in: suite))
-        suite.set(false, forKey: DesktopPreferences.restoresRoutingOnQuitKey)
-        XCTAssertFalse(DesktopPreferences.restoresRoutingOnQuit(in: suite))
-    }
-}
-
-@MainActor
 final class ChatGPTRestartTests: XCTestCase {
     private func makeModel() -> (AppModel, FakeChatGPTApp) {
         let suiteName = "ocx-tests-\(UUID().uuidString)"
@@ -303,12 +230,10 @@ final class ChatGPTRestartTests: XCTestCase {
 
 @MainActor
 final class ExitCleanupTests: XCTestCase {
-    private func makeModel(
-        restoresOnQuit: Bool = true
-    ) -> (AppModel, FakeChatGPTApp, () -> Int) {
-        let suiteName = "ocx-tests-\(UUID().uuidString)"
+    private func makeModel() -> (AppModel, FakeChatGPTApp, () -> Int) {
+        let suiteName = "ExitCleanupTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.set(restoresOnQuit, forKey: DesktopPreferences.restoresRoutingOnQuitKey)
+        addTeardownBlock { defaults.removePersistentDomain(forName: suiteName) }
         let model = AppModel(
             defaults: defaults,
             client: OpenCodexAPIClient(host: "127.0.0.1", port: 1),
@@ -316,72 +241,177 @@ final class ExitCleanupTests: XCTestCase {
         )
         let app = FakeChatGPTApp()
         model.chatGPT = app
+        model.needsExitCleanup = { true }
+        model.stopOwnedCoreOnExitOperation = { true }
         var restoreCalls = 0
         model.restoreRoutingOperation = { restoreCalls += 1 }
         return (model, app, { restoreCalls })
     }
 
-    func testQuitRestoresRoutingAndRestartsChatGPT() async {
-        let (model, app, restoreCalls) = makeModel()
+    func testQuitStopsThenRestoresThenRestartsClient() async {
+        let (model, app, _) = makeModel()
         app.isRunning = true
+        var steps: [String] = []
+        model.stopOwnedCoreOnExitOperation = {
+            steps.append("stop"); return true
+        }
+        model.restoreRoutingOperation = { steps.append("restore") }
+        app.onQuit = { steps.append("quit") }
+        app.onLaunch = { steps.append("launch") }
 
         let message = await model.runExitCleanup()
 
         XCTAssertNil(message)
+        XCTAssertEqual(steps, ["stop", "restore", "quit", "launch"])
+        XCTAssertTrue(model.didRunExitCleanup)
+    }
+
+    func testSuccessfulQuitCleanupRunsOnlyOnce() async {
+        let (model, app, restoreCalls) = makeModel()
+        app.isRunning = true
+        _ = await model.runExitCleanup()
+        _ = await model.runExitCleanup()
         XCTAssertEqual(restoreCalls(), 1)
-        XCTAssertEqual(app.quitCount, 1)
+        XCTAssertEqual(app.launchCount, 1)
+        XCTAssertTrue(model.didRunExitCleanup)
+    }
+
+    func testOldDisabledPreferenceAndRecentTimestampCannotSkipCleanup() async {
+        let (model, app, restoreCalls) = makeModel()
+        model.defaults.set(false, forKey: "restoreCodexRoutingOnQuit")
+        model.defaults.set(Date(), forKey: "lastCodexRoutingRestoreAt")
+        app.isRunning = true
+        let message = await model.runExitCleanup()
+        XCTAssertNil(message)
+        XCTAssertEqual(restoreCalls(), 1)
         XCTAssertEqual(app.launchCount, 1)
     }
 
-    func testQuitCleanupRunsOnlyOncePerSession() async {
-        let (model, _, restoreCalls) = makeModel()
-
-        _ = await model.runExitCleanup()
-        let callsAfterFirstQuit = restoreCalls()
-        _ = await model.runExitCleanup()
-
-        XCTAssertEqual(callsAfterFirstQuit, 1)
-        XCTAssertEqual(restoreCalls(), 1)
-        XCTAssertTrue(model.didRunExitCleanup)
-    }
-
-    func testDisabledPreferenceSkipsCleanupEntirely() async {
-        let (model, app, restoreCalls) = makeModel(restoresOnQuit: false)
+    func testFailedStopBlocksRestoreAndRetriesOnNextQuit() async {
+        let (model, app, restoreCalls) = makeModel()
         app.isRunning = true
-
+        model.stopOwnedCoreOnExitOperation = { throw CoreManagerError.launchFailed("still running") }
         let message = await model.runExitCleanup()
-
-        XCTAssertNil(message)
+        XCTAssertNotNil(message)
         XCTAssertEqual(restoreCalls(), 0)
         XCTAssertEqual(app.quitCount, 0)
         XCTAssertFalse(model.didRunExitCleanup)
+        model.stopOwnedCoreOnExitOperation = { true }
+        let retry = await model.runExitCleanup()
+        XCTAssertNil(retry)
+        XCTAssertEqual(restoreCalls(), 1)
+        XCTAssertEqual(app.launchCount, 1)
     }
 
-    /// A failed restore must be reported instead of quitting silently with Codex still routed to
-    /// a proxy that is about to disappear.
-    func testFailedRestoreIsReportedAndChatGPTIsLeftRunning() async {
+    func testFailedRestoreIsRetriedInsteadOfBypassedOnSecondQuit() async {
         let (model, app, _) = makeModel()
         app.isRunning = true
-        model.restoreRoutingOperation = { throw CoreManagerError.restoreFailed("路由被外部集成占用") }
-
-        let message = await model.runExitCleanup()
-
-        XCTAssertEqual(message, L10n.tr("还原 Codex 路由失败：\("路由被外部集成占用")"))
+        var calls = 0
+        model.restoreRoutingOperation = {
+            calls += 1
+            if calls == 1 { throw CoreManagerError.restoreFailed("config busy") }
+        }
+        let first = await model.runExitCleanup()
+        XCTAssertNotNil(first)
         XCTAssertEqual(app.quitCount, 0)
-        XCTAssertTrue(model.didRunExitCleanup)
+        XCTAssertFalse(model.didRunExitCleanup)
+        let second = await model.runExitCleanup()
+        XCTAssertNil(second)
+        XCTAssertEqual(calls, 2)
+        XCTAssertEqual(app.launchCount, 1)
     }
 
-    /// A completed cleanup inside the guard interval is not repeated on the next delivery.
-    func testCleanupIsNotRepeatedInsideTheGuardInterval() async {
-        let (model, _, _) = makeModel()
-        model.didRunExitCleanup = false
-        model.defaults.set(Date(), forKey: DesktopPreferences.lastExitCleanupKey)
-        var restoreCalls = 0
-        model.restoreRoutingOperation = { restoreCalls += 1 }
-
+    func testRestoreTimeoutDoesNotPermitQuit() async {
+        let (model, app, _) = makeModel()
+        app.isRunning = true
+        model.restoreRoutingOperation = { throw CoreManagerError.restoreTimedOut }
         let message = await model.runExitCleanup()
+        XCTAssertNotNil(message)
+        XCTAssertFalse(model.didRunExitCleanup)
+        XCTAssertEqual(app.quitCount, 0)
+    }
 
+    func testRefusedClientQuitBlocksExitAndCanBeRetried() async {
+        let (model, app, _) = makeModel()
+        app.isRunning = true
+        app.quitSucceeds = false
+        let message = await model.runExitCleanup()
+        XCTAssertNotNil(message)
+        XCTAssertFalse(model.didRunExitCleanup)
+        XCTAssertEqual(app.launchCount, 0)
+        app.quitSucceeds = true
+        let retry = await model.runExitCleanup()
+        XCTAssertNil(retry)
+        XCTAssertEqual(app.launchCount, 1)
+    }
+
+    func testFailedRelaunchRetriesEvenWhenClientIsNowClosed() async {
+        let (model, app, _) = makeModel()
+        app.isRunning = true
+        app.launchSucceeds = false
+        let message = await model.runExitCleanup()
+        XCTAssertNotNil(message)
+        XCTAssertFalse(app.isRunning)
+        XCTAssertFalse(model.didRunExitCleanup)
+        XCTAssertTrue(model.exitCleanupNeedsClientRestart)
+        app.launchSucceeds = true
+        let retry = await model.runExitCleanup()
+        XCTAssertNil(retry)
+        XCTAssertEqual(app.quitCount, 1)
+        XCTAssertEqual(app.launchCount, 2)
+        XCTAssertFalse(model.exitCleanupNeedsClientRestart)
+    }
+
+    func testClosedClientStaysClosedButRoutingIsRestored() async {
+        let (model, app, restoreCalls) = makeModel()
+        let message = await model.runExitCleanup()
         XCTAssertNil(message)
-        XCTAssertEqual(restoreCalls, 0)
+        XCTAssertEqual(restoreCalls(), 1)
+        XCTAssertEqual(app.launchCount, 0)
+    }
+
+    func testFreshInstallWithoutCoreCanQuit() async {
+        let (model, app, restoreCalls) = makeModel()
+        model.needsExitCleanup = { false }
+        model.stopOwnedCoreOnExitOperation = {
+            XCTFail("nothing to stop"); return false
+        }
+        let message = await model.runExitCleanup()
+        XCTAssertNil(message)
+        XCTAssertEqual(restoreCalls(), 0)
+        XCTAssertEqual(app.launchCount, 0)
+    }
+
+    func testConcurrentQuitRequestsShareCleanup() async {
+        let (model, app, restoreCalls) = makeModel()
+        app.isRunning = true
+        var resume: CheckedContinuation<Void, Never>?
+        var stops = 0
+        model.stopOwnedCoreOnExitOperation = {
+            stops += 1
+            await withCheckedContinuation { resume = $0 }
+            return true
+        }
+        let first = Task { await model.runExitCleanup() }
+        while resume == nil { await Task.yield() }
+        let second = Task { await model.runExitCleanup() }
+        await Task.yield()
+        resume?.resume()
+        let firstMessage = await first.value
+        let secondMessage = await second.value
+        XCTAssertNil(firstMessage)
+        XCTAssertNil(secondMessage)
+        XCTAssertEqual(stops, 1)
+        XCTAssertEqual(restoreCalls(), 1)
+        XCTAssertEqual(app.launchCount, 1)
+    }
+
+    func testInFlightServiceOperationDefersQuit() async {
+        let (model, _, restoreCalls) = makeModel()
+        model.isStoppingService = true
+        let message = await model.runExitCleanup()
+        XCTAssertNotNil(message)
+        XCTAssertFalse(model.didRunExitCleanup)
+        XCTAssertEqual(restoreCalls(), 0)
     }
 }

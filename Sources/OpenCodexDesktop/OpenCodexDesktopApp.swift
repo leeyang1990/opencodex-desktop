@@ -27,22 +27,16 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Quitting restores native Codex routing before the launcher exits.
-    ///
-    /// The restore is asynchronous, so termination is deferred: `terminateLater` keeps the app
-    /// alive while `ocx restore` runs and ChatGPT is restarted, then `reply(toApplicationShouldTerminate:)`
-    /// finishes the quit. A failed restore stays in the app with the reason visible instead of
-    /// quitting silently with Codex still pointed at a proxy that is about to disappear.
+    /// Finish stop → restore → restart before allowing termination. Failures keep the app open
+    /// and the next quit retries cleanup; only a fully successful cleanup is deduplicated.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let model else { return .terminateNow }
         if model.hasMarkedTerminating { return .terminateLater }
         model.hasMarkedTerminating = true
 
         Task { @MainActor in
-            let message = await Self.runExitCleanup(model, timeout: AppConstants.ChatGPT.terminationReplyTimeout)
+            let message = await model.runExitCleanup()
             if let message {
-                // The launcher stays open so the reason is readable; a second quit attempt skips
-                // the destructive step and terminates immediately.
                 model.errorMessage = message
                 model.hasMarkedTerminating = false
                 NSApp.reply(toApplicationShouldTerminate: false)
@@ -55,34 +49,6 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         DesktopEventStore.shared.append(.appStopped)
-        CoreManager.shared.detachOwnedProcess()
-    }
-
-    /// Runs cleanup once, bounded: a hung `ocx restore` must not trap the user in the app.
-    private static func runExitCleanup(_ model: AppModel, timeout: Duration) async -> String? {
-        let cleanup = Task { await model.runExitCleanup() }
-        guard await wait(for: cleanup, timeout: timeout) else {
-            cleanup.cancel()
-            return L10n.tr("退出前的还原尚未完成，Codex 配置可能仍指向本机代理。请稍后重试退出。")
-        }
-        return await cleanup.value
-    }
-
-    /// Waits for a task without blocking the main actor it needs to finish on.
-    private static func wait(for task: Task<String?, Never>, timeout: Duration) async -> Bool {
-        await withTaskGroup(of: Bool.self) { group in
-            group.addTask {
-                _ = await task.value
-                return true
-            }
-            group.addTask {
-                try? await Task.sleep(for: timeout)
-                return false
-            }
-            let finished = await group.next() ?? false
-            group.cancelAll()
-            return finished
-        }
     }
 }
 
@@ -100,6 +66,7 @@ struct OpenCodexDesktopApp: App {
             RootView()
                 .environmentObject(model)
                 .environment(\.locale, L10n.locale)
+                .disabled(model.hasMarkedTerminating)
                 .onAppear { applicationDelegate.model = model }
         }
         .defaultSize(width: 1040, height: 700)
@@ -130,6 +97,7 @@ struct OpenCodexDesktopApp: App {
             MenuBarContent()
                 .environmentObject(model)
                 .environment(\.locale, L10n.locale)
+                .disabled(model.hasMarkedTerminating)
         } label: {
             Image(nsImage: MenuBarIcon.image)
                 .renderingMode(.template)
@@ -219,7 +187,7 @@ private struct MenuBarContent: View {
         }
         .disabled(model.isRestartingChatGPT)
         Divider()
-        Button(model.restoresRoutingOnQuit ? L10n.tr("退出并还原 Codex 路由") : L10n.tr("退出（保留 Codex 路由）")) {
+        Button(L10n.tr("退出并停止代理")) {
             NSApp.terminate(nil)
         }
     }

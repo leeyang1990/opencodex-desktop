@@ -34,6 +34,5 @@ enum AppConstants {
         /// generous window to flush its own state; nothing is force-killed.
         static let quitTimeout: Duration = .seconds(15)
         static let quitPollInterval: Duration = .milliseconds(200)
-        static let terminationReplyTimeout: Duration = .seconds(25)
     }
 }

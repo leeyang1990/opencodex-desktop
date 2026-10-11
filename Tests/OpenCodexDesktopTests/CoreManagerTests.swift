@@ -4,30 +4,6 @@ import XCTest
 @testable import OpenCodexDesktop
 
 final class CoreReleaseTests: XCTestCase {
-    func testApplicationTerminationDetachesWithoutStoppingCore() throws {
-        let repositoryRoot = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let appSource = try String(
-            contentsOf: repositoryRoot.appendingPathComponent("Sources/OpenCodexDesktop/OpenCodexDesktopApp.swift"),
-            encoding: .utf8
-        )
-        let managerSource = try String(
-            contentsOf: repositoryRoot.appendingPathComponent("Sources/OpenCodexDesktop/CoreManager.swift"),
-            encoding: .utf8
-        )
-        let start = try XCTUnwrap(managerSource.range(of: "func detachOwnedProcess()"))
-        let remainingSource = managerSource[start.lowerBound...]
-        let end = try XCTUnwrap(remainingSource.range(of: "\n    private func"))
-        let detachImplementation = remainingSource[..<end.lowerBound]
-
-        XCTAssertTrue(appSource.contains("CoreManager.shared.detachOwnedProcess()"))
-        XCTAssertFalse(appSource.contains("CoreManager.shared.terminateOwnedProcess()"))
-        XCTAssertFalse(detachImplementation.contains(".terminate()"))
-        XCTAssertFalse(detachImplementation.contains("Darwin.kill"))
-    }
-
     func testBuildReleaseIsPinnedToImmutableArtifacts() {
         let release = CoreReleaseCatalog.build
 
@@ -154,5 +130,51 @@ final class CodexRuntimeEnvironmentTests: XCTestCase {
         let components = environment["PATH"]?.split(separator: ":").map(String.init) ?? []
         XCTAssertFalse(components.contains("/missing"))
         XCTAssertEqual(Array(components.suffix(2)), ["/usr/bin", "/bin"])
+    }
+}
+
+@MainActor
+final class OwnedCoreExitTests: XCTestCase {
+    func testQuitStopsRealOwnedChildBeforeRestoreAndLeavesUnownedChildRunning() async throws {
+        let owned = Process()
+        owned.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        owned.arguments = ["60"]
+        try owned.run()
+        let other = Process()
+        other.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        other.arguments = ["60"]
+        try other.run()
+        defer {
+            if owned.isRunning { owned.terminate() }
+            if other.isRunning { other.terminate() }
+        }
+        let name = "OwnedCoreExitTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let core = CoreManager(defaults: defaults, ownedProcess: owned)
+        let model = AppModel(
+            defaults: defaults,
+            client: OpenCodexAPIClient(host: "127.0.0.1", port: 1),
+            eventStore: .scratch(), coreManager: core
+        )
+        model.chatGPT = ClosedClient()
+        model.needsExitCleanup = { true }
+        var restored = false
+        model.restoreRoutingOperation = {
+            XCTAssertFalse(owned.isRunning)
+            XCTAssertFalse(core.ownsRunningProcess)
+            XCTAssertTrue(other.isRunning)
+            restored = true
+        }
+        let message = await model.runExitCleanup()
+        XCTAssertNil(message)
+        XCTAssertTrue(restored)
+        XCTAssertTrue(other.isRunning)
+    }
+
+    private struct ClosedClient: ChatGPTAppControlling {
+        var isRunning: Bool { false }
+        func requestQuit(timeout: Duration) async -> Bool { XCTFail("client is closed"); return false }
+        func launch() async -> Bool { XCTFail("client is closed"); return false }
     }
 }

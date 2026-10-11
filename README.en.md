@@ -39,7 +39,7 @@ OpenCodex Desktop is an independently developed community macOS client. It is no
 - **Usage overview** — Seven-day request, token and usage charts without reading request bodies.
 - **Local proxy and ChatGPT** — Start, stop, copy the Base URL and restart ChatGPT. Explicit stop restores routing and then restarts ChatGPT if it is running.
 - **Verified updates** — Check GitHub Releases, download the exact Apple Silicon DMG, and verify SHA-256 before opening it.
-- **Online Core versions** — Settings fetches upstream stable releases with manual refresh and offline caching. Selections pin exact versions and digests, never automatically follow `latest`. Newly discovered releases are experimental and limited to Core 2.x with a launcher-pinned Bun runtime.
+- **Online Core versions** — Settings fetches upstream stable releases with manual refresh and offline caching. Selections pin exact versions and digests, never automatically follow `latest`. Users can choose upstream stable releases independently of Desktop updates. Required Bun runtimes and checksums are resolved automatically from official releases.
 
 ## Surfaces
 
@@ -74,9 +74,9 @@ Download the DMG from [GitHub Releases](https://github.com/leeyang1990/opencodex
 
 ## Behavior Boundaries
 
-- Core is decoupled from the Desktop window after launch; quitting Desktop does not stop an already-running Core.
+- Closing the window keeps Desktop in the menu bar; quitting Desktop stops the Core it started.
 - Core does not start with Desktop by default. Starting Core with Desktop and launching Desktop at login are independent preferences.
-- By default Desktop restores native Codex routing and restarts ChatGPT before quitting, so ChatGPT is not left pointing at a proxy that is about to disappear. The behavior can be turned off in **Settings › Client**.
+- Every quit stops the Core owned by this Desktop session, restores the original Codex base URL through Core, then restarts Codex if it was running. This cleanup cannot be disabled. A failure keeps Desktop open with the reason; the next quit retries the unfinished cleanup.
 - Desktop writes only a curated set of common settings through the Core's own endpoints. Fine-grained account scheduling, full channel and subagent parameters, custom models, routing, usage, and logs stay in the console.
 - A channel API key lives in memory for the current session only, is written to the Core, and is then dropped; it never reaches preferences, the event log, or a log file, and the shell only reads back the Core's masked form. Codex sign-in opens the browser from the Core, so credentials never pass through the client.
 - Both restore and re-point run through the Core's own recovery flow; Desktop never parses or rewrites `~/.codex/config.toml` itself. The next launch re-points Codex at the local proxy and offers a ChatGPT restart when the running app still holds the old configuration.

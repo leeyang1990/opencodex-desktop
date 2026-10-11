@@ -15,14 +15,11 @@ struct OnlineCoreVersion: Codable, Equatable, Identifiable, Sendable {
     var id: String { version }
 
     var unavailableReason: String? {
-        guard let parts = Self.components(version), parts[0] == 2, parts[1] >= 12 else {
-            return L10n.tr("超出客户端支持的 Core 2.x 范围")
-        }
         guard deprecated == nil else { return L10n.tr("上游已弃用") }
-        guard dependencies?["bun"].flatMap(OnlineCoreCatalog.runtime) != nil else {
-            return L10n.tr("Bun 版本尚未适配")
+        guard dependencies?["bun"].flatMap(Self.components) != nil else {
+            return L10n.tr("发布信息未提供明确的 Bun 版本。")
         }
-        guard name == OnlineCoreCatalog.packageName,
+        guard Self.components(version) != nil, name == OnlineCoreCatalog.packageName,
             gitHead?.range(of: "^[a-f0-9]{40}$", options: .regularExpression) != nil,
             dist.tarball.absoluteString == OnlineCoreCatalog.packageURL(version).absoluteString,
             Self.integrityDigest(dist.integrity) != nil
@@ -63,10 +60,6 @@ struct OnlineCoreCatalog: Codable, Sendable {
         URL(string: "https://registry.npmjs.org/@bitkyc08/opencodex/-/opencodex-\(version).tgz")!
     }
 
-    static func runtime(_ version: String) -> CoreRelease? {
-        CoreReleaseCatalog.all.first { $0.bunVersion == version }
-    }
-
     static func decode(_ data: Data, now: Date = Date()) throws -> Self {
         struct Registry: Decodable {
             let name: String
@@ -78,7 +71,7 @@ struct OnlineCoreCatalog: Codable, Sendable {
         guard registry.name == packageName else { throw OnlineCoreCatalogError.invalidMetadata }
         let versions = registry.versions.compactMap { key, value -> OnlineCoreVersion? in
             guard key == value.version, value.name == packageName,
-                let parts = OnlineCoreVersion.components(key), parts[0] >= 2
+                OnlineCoreVersion.components(key) != nil
             else { return nil }
             return value
         }.sorted {
@@ -91,17 +84,16 @@ struct OnlineCoreCatalog: Codable, Sendable {
     }
 
     static func validatePrepared(_ release: CoreRelease) -> Bool {
-        guard let runtime = runtime(release.bunVersion),
-            let parts = OnlineCoreVersion.components(release.version), parts[0] == 2, parts[1] >= 12,
+        guard OnlineCoreVersion.components(release.bunVersion) != nil,
+            OnlineCoreVersion.components(release.version) != nil,
             release.commit.range(of: "^[a-f0-9]{40}$", options: .regularExpression) != nil
         else { return false }
         return release.package.url == packageURL(release.version)
             && release.lockfile.url.absoluteString == lockfileURL(release.commit).absoluteString
-            && [release.package.sha256, release.lockfile.sha256].allSatisfy {
-                $0.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil
-            }
-            && release.bunArm64SHA256 == runtime.bunArm64SHA256
-            && release.bunX64SHA256 == runtime.bunX64SHA256
+            && [release.package.sha256, release.lockfile.sha256, release.bunArm64SHA256, release.bunX64SHA256]
+                .allSatisfy(BunRuntimeRelease.isSHA256)
+            && release.package.maximumBytes > 0 && release.package.maximumBytes <= 256 * 1_024 * 1_024
+            && release.lockfile.maximumBytes > 0 && release.lockfile.maximumBytes <= 256 * 1_024 * 1_024
     }
 
     static func lockfileURL(_ commit: String) -> URL {
@@ -156,6 +148,7 @@ struct CoreVersionOption: Equatable {
 
 enum OnlineCoreCatalogError: LocalizedError {
     case invalidMetadata, unsupported(String), checksum, network(Int), oversized
+    case invalidRuntimeMetadata(String)
     var errorDescription: String? {
         switch self {
         case .invalidMetadata: L10n.tr("上游版本信息不完整或来源不可信。")
@@ -163,6 +156,7 @@ enum OnlineCoreCatalogError: LocalizedError {
         case .checksum: L10n.tr("版本制品校验失败，未更改当前内核选择。")
         case .network(let status): L10n.tr("版本服务返回 HTTP \(status)，请稍后刷新。")
         case .oversized: L10n.tr("版本服务响应超过大小限制。")
+        case .invalidRuntimeMetadata(let version): L10n.tr("无法取得 Bun \(version) 的官方 macOS 下载校验信息，请稍后重试。")
         }
     }
 }
@@ -172,8 +166,7 @@ actor OnlineCoreCatalogClient {
     private let session: URLSession
     private let redirectPolicy: CatalogRedirectPolicy
 
-    init() {
-        let config = URLSessionConfiguration.ephemeral
+    init(configuration config: URLSessionConfiguration = .ephemeral) {
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 90
         config.httpCookieStorage = nil
@@ -195,9 +188,9 @@ actor OnlineCoreCatalogClient {
         let url = OnlineCoreCatalog.endpoint.appendingPathComponent(candidate.version)
         let current = try JSONDecoder().decode(
             OnlineCoreVersion.self, from: await data(from: url, limit: 1_024 * 1_024))
-        guard current == candidate, let commit = current.gitHead,
-            let runtime = current.dependencies?["bun"].flatMap(OnlineCoreCatalog.runtime)
+        guard current == candidate, let commit = current.gitHead, let bunVersion = current.dependencies?["bun"]
         else { throw OnlineCoreCatalogError.invalidMetadata }
+        async let runtime = resolveRuntime(bunVersion)
 
         let package = try await data(from: current.dist.tarball, limit: 64 * 1_024 * 1_024)
         guard current.verifiesPackage(package) else { throw OnlineCoreCatalogError.checksum }
@@ -215,12 +208,14 @@ actor OnlineCoreCatalogClient {
         guard Insecure.SHA1.hash(data: gitData).map({ String(format: "%02x", $0) }).joined() == blob.sha else {
             throw OnlineCoreCatalogError.checksum
         }
+        let resolvedRuntime = try await runtime
         let release = CoreRelease(
             version: current.version, commit: commit,
             package: DownloadArtifact(url: current.dist.tarball, sha256: Self.sha256(package)),
             lockfile: DownloadArtifact(
                 url: OnlineCoreCatalog.lockfileURL(commit), sha256: Self.sha256(lock), maximumBytes: 1_024 * 1_024),
-            bunVersion: runtime.bunVersion, bunArm64SHA256: runtime.bunArm64SHA256, bunX64SHA256: runtime.bunX64SHA256
+            bunVersion: resolvedRuntime.version, bunArm64SHA256: resolvedRuntime.arm64SHA256,
+            bunX64SHA256: resolvedRuntime.x64SHA256
         )
         guard OnlineCoreCatalog.validatePrepared(release) else { throw OnlineCoreCatalogError.invalidMetadata }
         return release
@@ -228,6 +223,15 @@ actor OnlineCoreCatalogClient {
 
     private static func sha256(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func resolveRuntime(_ version: String) async throws -> BunRuntimeRelease {
+        if let bundled = CoreReleaseCatalog.all.first(where: { $0.bunVersion == version }) {
+            return BunRuntimeRelease(
+                version: version, arm64SHA256: bundled.bunArm64SHA256, x64SHA256: bundled.bunX64SHA256)
+        }
+        return try BunRuntimeRelease.decode(
+            await data(from: BunRuntimeRelease.metadataURL(version), limit: 2 * 1_024 * 1_024), version: version)
     }
 
     private func data(from url: URL, limit: Int) async throws -> Data {

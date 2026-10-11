@@ -3,7 +3,8 @@ import Foundation
 
 extension AppModel {
     func startService() async {
-        guard !isStoppingService else { return }
+        guard !isStoppingService, !hasMarkedTerminating, exitCleanupTask == nil else { return }
+        didRunExitCleanup = false
         isRefreshing = true
         defer { isRefreshing = false }
         do {

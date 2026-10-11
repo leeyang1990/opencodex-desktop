@@ -248,6 +248,7 @@ struct CodexAccount: Decodable, Identifiable, Equatable {
     var isPaused: Bool { paused == true }
     var isHealthy: Bool { (health?.status ?? "healthy") == "healthy" }
     var displayName: String { logLabel ?? email ?? id }
+    var resetCreditCount: Int { max(quota?.resetCredits ?? 0, 0) }
 
     /// The account the Codex CLI uses when no pool account is pinned.
     static let mainID = "__main__"
@@ -261,6 +262,14 @@ struct AccountQuota: Decodable, Equatable {
 
 struct AccountHealth: Decodable, Equatable {
     let status: String?
+}
+
+/// Result of consuming one Codex quota reset credit. Core owns the irreversible operation and
+/// returns a small status envelope without exposing account credentials to Desktop.
+struct ResetCreditConsumeResult: Decodable, Equatable {
+    let code: String
+    let remaining: Int?
+    let replayed: Bool?
 }
 
 /// Scheduling state from `GET /api/codex-auth/active`.

@@ -72,15 +72,15 @@ final class OnlineCoreCatalogTests: XCTestCase {
         XCTAssertTrue(options.last!.label.contains(L10n.tr("\(options.last!.version) · 已锁定")))
     }
 
-    func testPickerOfflineFallbackAndCompatibilityWarnings() throws {
+    func testPickerOfflineFallbackDoesNotDisableUnlistedBunVersions() throws {
         let pinned = CoreReleaseCatalog.userSelectable
         let offline = CoreVersionOption.choices(catalog: nil, pinned: pinned, selected: pinned[0].version)
         XCTAssertEqual(Set(offline.map(\.version)), Set(pinned.map(\.version)))
         XCTAssertTrue(CoreVersionOption.choices(catalog: nil, pinned: [], selected: nil).isEmpty)
         let catalog = try OnlineCoreCatalog.decode(registry([entry("2.60.0", bun: "9.0.0"), entry()]))
         let options = CoreVersionOption.choices(catalog: catalog, pinned: [], selected: nil)
-        XCTAssertTrue(options[0].unavailable)
-        XCTAssertTrue(options[0].label.contains(L10n.tr("Bun 版本尚未适配")))
+        XCTAssertFalse(options[0].unavailable)
+        XCTAssertEqual(options[0].label, "2.60.0")
         XCTAssertFalse(options[1].unavailable)
     }
 
@@ -90,11 +90,11 @@ final class OnlineCoreCatalogTests: XCTestCase {
         XCTAssertEqual(catalog.versions.count, 1)
     }
 
-    func testCompatibilityBoundRequiresCoreTwoAndPinnedBun() {
+    func testSelfSelectedStableReleasesDoNotRequireLauncherVersionAllowlist() {
         XCTAssertNil(entry().unavailableReason)
-        XCTAssertNotNil(entry("3.0.0").unavailableReason)
-        XCTAssertNotNil(entry("2.11.0").unavailableReason)
-        XCTAssertNotNil(entry(bun: "1.5.0").unavailableReason)
+        XCTAssertNil(entry("3.0.0").unavailableReason)
+        XCTAssertNil(entry("2.11.0").unavailableReason)
+        XCTAssertNil(entry(bun: "1.5.0").unavailableReason)
         XCTAssertNotNil(entry(bun: "^1.4.0").unavailableReason)
     }
 
@@ -121,7 +121,7 @@ final class OnlineCoreCatalogTests: XCTestCase {
         XCTAssertEqual(cached.fetchedAt, date)
     }
 
-    func testPreparedDescriptorsRoundTripAndRejectChangedRuntimeHash() throws {
+    func testPreparedDescriptorsRoundTripAndRejectMalformedRuntimeHash() throws {
         let release = CoreReleaseCatalog.userSelectable[0]
         XCTAssertTrue(OnlineCoreCatalog.validatePrepared(release))
         let cached = try JSONDecoder().decode(CoreRelease.self, from: JSONEncoder().encode(release))
@@ -131,6 +131,19 @@ final class OnlineCoreCatalogTests: XCTestCase {
             lockfile: release.lockfile, bunVersion: release.bunVersion, bunArm64SHA256: "bad",
             bunX64SHA256: release.bunX64SHA256)
         XCTAssertFalse(OnlineCoreCatalog.validatePrepared(invalid))
+    }
+
+    func testDynamicallyResolvedRuntimeSurvivesCachedDescriptorValidation() throws {
+        let old = CoreReleaseCatalog.userSelectable[0]
+        let release = CoreRelease(
+            version: "3.0.0", commit: old.commit,
+            package: DownloadArtifact(url: OnlineCoreCatalog.packageURL("3.0.0"), sha256: old.package.sha256),
+            lockfile: old.lockfile, bunVersion: "1.5.0",
+            bunArm64SHA256: String(repeating: "a", count: 64), bunX64SHA256: String(repeating: "b", count: 64))
+        XCTAssertTrue(OnlineCoreCatalog.validatePrepared(release))
+        let cached = try JSONDecoder().decode(CoreRelease.self, from: JSONEncoder().encode(release))
+        XCTAssertEqual(cached, release)
+        XCTAssertTrue(OnlineCoreCatalog.validatePrepared(cached))
     }
 
     func testCachedCustomSelectionSurvivesOfflineRestart() {
@@ -149,7 +162,7 @@ final class OnlineCoreCatalogTests: XCTestCase {
             CoreReleaseCatalog.build)
     }
 
-    func testLiveDiscoveryAndPreparationWithoutInstallingOrSelecting() async throws {
+    func testLiveDiscoveryAndPreparation() async throws {
         guard ProcessInfo.processInfo.environment["OPENCODEX_LIVE_CATALOG_TEST"] == "1" else {
             throw XCTSkip("Opt-in public registry check; no Core is installed, selected or started.")
         }
@@ -163,5 +176,28 @@ final class OnlineCoreCatalogTests: XCTestCase {
         print(
             "Verified public Core release \(release.version); \(catalog.versions.count) stable versions; no install performed"
         )
+        // Explicit opt-in exercises the production installer without selecting or starting Core.
+        // Never replace an existing installation used by another Desktop process.
+        if ProcessInfo.processInfo.environment["OPENCODEX_LIVE_INSTALL_TEST"] == "1" {
+            let paths = CoreInstallationPaths.paths(for: release.version)
+            guard !FileManager.default.fileExists(atPath: paths.runtimeExecutable.path) else { return }
+            let manifest = try await CoreInstaller().install(release: release) { phase in print(phase) }
+            XCTAssertEqual(manifest.coreVersion, release.version)
+            XCTAssertEqual(manifest.bunVersion, release.bunVersion)
+            let process = Process()
+            let output = Pipe()
+            process.executableURL = paths.runtimeExecutable
+            process.arguments = ["--version"]
+            process.standardOutput = output
+            try process.run()
+            let versionData = output.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            XCTAssertEqual(process.terminationStatus, 0)
+            XCTAssertEqual(
+                String(data: versionData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                release.bunVersion)
+            print(
+                "Installed Core \(release.version); executed Bun \(release.bunVersion); no selection or launch changed")
+        }
     }
 }

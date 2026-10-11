@@ -962,7 +962,7 @@ final class CoreManager: ObservableObject {
         return installedTrustedReleases.first { $0.version != targetRelease.version }
     }
 
-    private init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, ownedProcess: Process? = nil) {
         self.defaults = defaults
         let prepared =
             defaults.data(forKey: Self.preparedReleasesKey)
@@ -984,6 +984,8 @@ final class CoreManager: ObservableObject {
             defaults.string(forKey: CodexRuntimePreference.defaultsKey)
         )
         refreshInstallation()
+        process = ownedProcess
+        ownsRunningProcess = ownedProcess?.isRunning == true
     }
 
     func refreshAvailableVersions() async {
@@ -1315,15 +1317,6 @@ final class CoreManager: ObservableObject {
 
     func openInstallationFolder() {
         NSWorkspace.shared.open(CoreInstallationPaths.coreDirectory)
-    }
-
-    func detachOwnedProcess() {
-        process?.terminationHandler = nil
-        process = nil
-        try? logHandle?.close()
-        logHandle = nil
-        ownsRunningProcess = false
-        stopRequested = false
     }
 
     private func reportInstallationPhase(_ phase: String) {

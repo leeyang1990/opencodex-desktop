@@ -42,7 +42,15 @@ final class ConfigurationPayloadTests: XCTestCase {
         XCTAssertFalse(account.isPaused)
         XCTAssertTrue(account.isHealthy)
         XCTAssertEqual(account.quota?.weeklyPercent, 49)
+        XCTAssertEqual(account.resetCreditCount, 0)
         XCTAssertEqual(account.healthLabel, "Healthy")
+    }
+
+    func testDecodesResetCreditsOnAccount() throws {
+        let json = #"{"accounts":[{"id":"pool-1","quota":{"resetCredits":2}}]}"#
+        let decoded = try JSONDecoder().decode(CodexAccountListProbe.self, from: Data(json.utf8))
+
+        XCTAssertEqual(decoded.accounts.first?.resetCreditCount, 2)
     }
 
     func testDecodesSchedulingState() throws {

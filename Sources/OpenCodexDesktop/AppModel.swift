@@ -31,6 +31,9 @@ final class AppModel: NSObject, ObservableObject {
     @Published var loginFlowID: String?
     @Published var loginMessage: String?
     @Published var accountErrorMessage: String?
+    @Published var consumingResetCreditAccountID: String?
+    /// Session-only idempotency identities. Account identifiers and operations are never persisted.
+    var resetCreditOperationIDs: [String: String] = [:]
 
     @Published var channels: [APIChannel] = []
     @Published var defaultChannelName: String?
@@ -68,7 +71,7 @@ final class AppModel: NSObject, ObservableObject {
     }
 
     let client: OpenCodexAPIClient
-    let coreManager = CoreManager.shared
+    let coreManager: CoreManager
     let defaults: UserDefaults
     /// The event timeline. Injectable so tests never append to the user's real history.
     let eventStore: DesktopEventStore
@@ -78,8 +81,10 @@ final class AppModel: NSObject, ObservableObject {
     private var serviceMonitorTask: Task<Void, Never>?
     var chatGPTStatusTask: Task<Void, Never>?
     var chatGPTObservers: [NSObjectProtocol] = []
-    var hasMarkedTerminating = false
+    @Published var hasMarkedTerminating = false
     var didRunExitCleanup = false
+    var exitCleanupTask: Task<String?, Never>?
+    var exitCleanupNeedsClientRestart = false
 
     /// ChatGPT lifecycle, isolated behind a protocol so the restart and quit paths are testable
     /// without launching the real app.
@@ -107,13 +112,28 @@ final class AppModel: NSObject, ObservableObject {
     lazy var stopCoreOperation: () async throws -> Void = { [unowned self] in
         try await self.stopCoreForShutdown()
     }
+    /// Quit only owns the child launched by this Desktop session, even if its API is unhealthy.
+    lazy var stopOwnedCoreOnExitOperation: () async throws -> Bool = { [unowned self] in
+        let wasRunning = self.coreManager.ownsRunningProcess
+        await self.coreManager.stop()
+        guard !self.coreManager.ownsRunningProcess else {
+            throw CoreManagerError.launchFailed(L10n.tr("内核进程仍在运行，请稍后重试。"))
+        }
+        return wasRunning
+    }
+    lazy var needsExitCleanup: () -> Bool = { [unowned self] in
+        self.coreManager.installationState.isInstalled || self.coreManager.ownsRunningProcess
+            || self.settings?.isCodexRoutingInjected == true || self.exitCleanupNeedsClientRestart
+    }
 
     init(
         defaults: UserDefaults = .standard,
         client: OpenCodexAPIClient? = nil,
-        eventStore: DesktopEventStore? = nil
+        eventStore: DesktopEventStore? = nil,
+        coreManager: CoreManager? = nil
     ) {
         self.defaults = defaults
+        self.coreManager = coreManager ?? .shared
         self.eventStore = eventStore ?? .shared
         let initialHost = defaults.string(forKey: "connectionHost") ?? AppConstants.Connection.defaultHost
         let savedPort = defaults.integer(forKey: "connectionPort")

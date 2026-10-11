@@ -7,18 +7,12 @@ extension SettingsView {
             sectionHeader(L10n.tr("客户端"), symbol: "macwindow")
 
             settingRow(
-                title: L10n.tr("退出时还原 Codex 路由"),
-                detail: L10n.tr("还原原生路由并重启 ChatGPT；内核继续运行。")
+                title: L10n.tr("退出清理"),
+                detail: L10n.tr("停止本应用启动的 OpenCodex，恢复 Codex 原来的 base URL，并重启正在运行的 Codex。")
             ) {
-                Toggle(
-                    "",
-                    isOn: Binding(
-                        get: { model.restoresRoutingOnQuit },
-                        set: { model.restoresRoutingOnQuit = $0 }
-                    )
-                )
-                .labelsHidden()
-                .toggleStyle(.switch)
+                Text(L10n.tr("始终执行"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Divider()
@@ -137,7 +131,7 @@ extension SettingsView {
                 .toggleStyle(.switch)
             }
 
-            Label(L10n.tr("退出 App 不停止内核，可在首页停止。"), systemImage: "bolt.shield.fill")
+            Label(L10n.tr("退出 App 时会停止本应用启动的内核。"), systemImage: "bolt.shield.fill")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -204,7 +198,7 @@ extension SettingsView {
             if coreManager.versionMode == .custom {
                 settingRow(
                     title: L10n.tr("选择版本"),
-                    detail: L10n.tr("实验性支持，未完整验证；可切回构建版本。")
+                    detail: L10n.tr("自行选择上游版本，所需运行时会自动下载。")
                 ) {
                     Picker("", selection: customCoreVersionBinding) {
                         ForEach(coreVersionOptions, id: \.version) { option in
@@ -233,7 +227,7 @@ extension SettingsView {
                     Spacer()
                     Button(L10n.tr("刷新版本")) { Task { await coreManager.refreshAvailableVersions() } }
                         .disabled(coreManager.isRefreshingVersions || coreManager.isPreparingVersion)
-                        .help(L10n.tr("联网刷新列表，不会切换内核。仅支持 Core 2.x 与已适配的 Bun；选择后校验并锁定版本。"))
+                        .help(L10n.tr("联网刷新上游版本；选择后自动获取对应运行时并校验下载文件。"))
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)

@@ -96,6 +96,35 @@ final class APIClientRequestTests: XCTestCase {
         XCTAssertEqual(report.summary.requests, 1)
     }
 
+    func testResetCreditConsumptionUsesIdempotentCoreContract() async throws {
+        let operationID = "123e4567-e89b-42d3-a456-426614174000"
+        URLProtocolStub.handler = { request in
+            XCTAssertEqual(request.url?.path, "/api/codex-auth/reset-credits/consume")
+            XCTAssertEqual(request.httpMethod, "POST")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "X-OpenCodex-API-Key"), "test-token")
+            let body = try requestBodyData(request)
+            let object = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: String])
+            XCTAssertEqual(object, ["accountId": "pool-1", "operationId": operationID])
+            let response = HTTPURLResponse(
+                url: try XCTUnwrap(request.url), statusCode: 200,
+                httpVersion: nil, headerFields: ["Content-Type": "application/json"]
+            )!
+            return (response, Data(#"{"code":"reset","remaining":1}"#.utf8))
+        }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let client = OpenCodexAPIClient(
+            host: "localhost", port: AppConstants.Connection.defaultPort,
+            session: URLSession(configuration: configuration),
+            tokenProvider: AdminTokenProvider(environment: ["OPENCODEX_ADMIN_AUTH_TOKEN": "test-token"])
+        )
+
+        let result = try await client.consumeCodexResetCredit(accountID: "pool-1", operationID: operationID)
+
+        XCTAssertEqual(result.code, "reset")
+        XCTAssertEqual(result.remaining, 1)
+    }
+
     private func stopClient() -> OpenCodexAPIClient {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [URLProtocolStub.self]
@@ -143,6 +172,22 @@ final class APIClientRequestTests: XCTestCase {
         let stillListening = try await stopClient().isProxyListenerStopped()
         XCTAssertFalse(stillListening)
     }
+}
+
+private func requestBodyData(_ request: URLRequest) throws -> Data {
+    if let body = request.httpBody { return body }
+    let stream = try XCTUnwrap(request.httpBodyStream)
+    stream.open()
+    defer { stream.close() }
+    var body = Data()
+    var buffer = [UInt8](repeating: 0, count: 1_024)
+    while stream.hasBytesAvailable {
+        let count = stream.read(&buffer, maxLength: buffer.count)
+        if count < 0 { throw try XCTUnwrap(stream.streamError) }
+        if count == 0 { break }
+        body.append(buffer, count: count)
+    }
+    return body
 }
 
 private final class URLProtocolStub: URLProtocol {

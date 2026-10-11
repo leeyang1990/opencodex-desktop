@@ -42,13 +42,13 @@ loopback API        pinned HTTPS artifacts  local macOS      local executables  
 
 - The launcher discovers only manifests that match their version directory and use a safe semantic version.
 - A runnable installation must match the bound Core version, commit, Bun version, and package digest.
-- A started Core outlives the Desktop process. App termination detaches local process bookkeeping without sending a termination signal; reopening the app connects to the existing loopback service.
+- Closing the window leaves Desktop in the menu bar. App termination waits for the owned Core process to stop, restores the original Codex base URL through the Core CLI, then restarts the running Codex client. It never signals an unowned process.
 - Startup waits on the unauthenticated readiness endpoint with a deadline and cancellation support.
 - Unexpected process termination is reported immediately from the process termination handler.
 - A successful launch becomes the known-good Core version. A failed update can select and restart a previously verified installed release without deleting user configuration.
 - A 60-second health monitor and macOS wake observer record only allowlisted state transitions; native notifications remain opt-in.
 - Stop escalates from terminate to interrupt and finally `SIGKILL`; the launcher does not discard ownership while the process is still running.
-- ChatGPT reads `~/.codex/config.toml` once at launch, so a routing change is only effective after ChatGPT restarts. Desktop quits ChatGPT cooperatively and relaunches it, and quitting the client restores native routing first (a preference, on by default) so ChatGPT is not left pointing at a proxy that is going away.
+- Codex reads `~/.codex/config.toml` at launch, so Desktop quits the client cooperatively and relaunches it after restoring routing. Quit cleanup is mandatory; legacy preferences and cleanup timestamps cannot bypass it. A failed stop, restore, or client restart cancels termination and can be retried. If relaunch fails after the client quit, the next attempt still launches it. Concurrent quit requests share one cleanup task; only successful cleanup is marked complete.
 - A quit-time restore records the Codex integration as off in the Core's desired state. The next launch re-points Codex at the running proxy, and a failed or timed-out restore keeps the client open with the reason rather than quitting silently.
 - A one-shot Core CLI command (`ocx restore`) is bounded by its own deadline, event-driven rather than polled, so a hung command cannot block the quit path.
 - An explicit **Stop** validates the Core's stop acknowledgement, confirms the owned process and loopback listener have stopped, then runs the Core-owned restore command and restarts ChatGPT only if it is running. A missing/negative acknowledgement, restore failure, or restart failure is reported without claiming complete success. A timeout is not proof of a stopped listener. Internal stops during restart, installation, or rollback do not restart ChatGPT; uninstall uses the explicit-stop cleanup. This is an intentional-stop workflow, not crash recovery.

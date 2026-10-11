@@ -31,6 +31,42 @@ extension AppModel {
         operationMessage = paused ? L10n.tr("已暂停 \(account.displayName)") : L10n.tr("已恢复 \(account.displayName)")
     }
 
+    /// Uses one quota reset credit attached to an account. A failed/uncertain request keeps its
+    /// operation id for a safe retry; terminal Core outcomes retire it and refresh account quota.
+    func consumeResetCredit(for account: CodexAccount) async {
+        guard isOnline, consumingResetCreditAccountID == nil, account.resetCreditCount > 0 else { return }
+        let operationID = resetCreditOperationIDs[account.id] ?? UUID().uuidString.lowercased()
+        resetCreditOperationIDs[account.id] = operationID
+        consumingResetCreditAccountID = account.id
+        defer { consumingResetCreditAccountID = nil }
+
+        do {
+            let result = try await client.consumeCodexResetCredit(
+                accountID: account.id,
+                operationID: operationID
+            )
+            switch result.code {
+            case "reset":
+                resetCreditOperationIDs[account.id] = nil
+                operationMessage = L10n.tr("充值卡已使用，额度已重置")
+            case "already_redeemed":
+                resetCreditOperationIDs[account.id] = nil
+                operationMessage = L10n.tr("充值卡状态已确认，额度已刷新")
+            case "nothing_to_reset":
+                resetCreditOperationIDs[account.id] = nil
+                operationMessage = L10n.tr("当前额度无需重置，未使用充值卡")
+            case "no_credit":
+                resetCreditOperationIDs[account.id] = nil
+                accountErrorMessage = L10n.tr("该账号没有可用充值卡")
+            default:
+                throw OpenCodexAPIError.operationFailed(L10n.tr("内核返回了未知的充值卡状态"))
+            }
+            await loadCodexAccounts()
+        } catch {
+            accountErrorMessage = error.localizedDescription
+        }
+    }
+
     // MARK: - Scheduling
 
     func setCodexPoolStrategy(_ strategy: String, stickyLimit: Int? = nil) async {

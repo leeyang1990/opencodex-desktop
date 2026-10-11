@@ -2,6 +2,30 @@
 
 All notable changes to OpenCodex Desktop are documented here. The project follows semantic versioning for tagged releases.
 
+## 0.10.4 - 2026-10-11
+
+### 中文
+
+- 退出固定执行停止本应用启动的 Core、恢复 Codex 原来的 base URL、重启正在运行的 Codex；移除退出清理开关和保留内核运行的旧说明。
+- 停止、路由恢复或 Codex 重启失败时保留客户端并显示原因，再次退出会重试；并发退出共用一次清理，旧偏好和最近清理时间不再跳过必要步骤。
+- 自选 Core 不再受客户端内置 Core/Bun 版本白名单限制。自动解析所选版本需要的 Bun，从官方发布信息锁定 macOS 安装包和 SHA-256，并保留下载校验、离线缓存与失败回滚。
+- 账号列表显示可用充值卡，支持确认后使用一张重置额度；通过幂等请求和重复操作保护避免不确定网络响应造成重复消耗。
+- 补充退出顺序、失败重试、进程归属、动态运行时解析、发布信息校验和充值卡请求测试。实测 Core 2.83.0 与 Bun 1.4.2 的下载、安装和版本选择。
+
+### English
+
+- Make quit cleanup mandatory: stop the Core started by Desktop, restore the original Codex base URL, then restart Codex if it was running. Remove the opt-out and stale background-Core guidance.
+- Keep Desktop open when stopping, restoration or restart fails, and retry on the next quit. Concurrent quit requests share one cleanup; legacy preferences and recent cleanup timestamps cannot skip required steps.
+- Let users select upstream Core releases without a built-in Core/Bun version allowlist. Resolve the required Bun version and macOS SHA-256 digests from official releases while retaining verified downloads, offline caching and rollback.
+- Show available account quota-reset credits and allow using one after confirmation, with idempotent requests and duplicate-operation protection.
+- Add coverage for cleanup ordering, retries, process ownership, dynamic runtime resolution, release metadata and reset-credit requests. Verify Core 2.83.0 with Bun 1.4.2 through real downloads, installation and version selection.
+
+### Downloads / 下载
+
+- Apple Silicon (arm64), macOS 14+. DMG and ZIP include SHA-256 checksum files.
+- Ad-hoc signed, not Apple-notarized. Core is installed separately; credentials, configuration and logs are not bundled.
+- 仅提供 Apple Silicon 版本；安装包为临时签名，未经 Apple 公证。Core 单独安装，不包含账号、密钥、配置或日志。
+
 ## 0.10.3 - 2026-09-21
 
 ### 中文

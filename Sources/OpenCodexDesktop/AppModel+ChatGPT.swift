@@ -9,34 +9,7 @@ enum RoutingRestoreOutcome: Equatable {
     case timedOut
 }
 
-/// Whether the quitting launch may rewrite Codex routing.
-///
-/// Restoring is intentionally once per session, and skipped when a previous quit did it moments
-/// ago: two quit attempts five seconds apart are the same logout/restart, not two user decisions.
-struct ExitCleanupPlanner: Equatable {
-    static let minimumIntervalBetweenRestores: TimeInterval = 30
-
-    let alreadyCleanedThisSession: Bool
-    let preferenceEnabled: Bool
-    let lastCleanupAt: Date?
-    let now: Date
-
-    var shouldRestoreRouting: Bool {
-        guard preferenceEnabled, !alreadyCleanedThisSession else { return false }
-        guard let lastCleanupAt else { return true }
-        return now.timeIntervalSince(lastCleanupAt) >= Self.minimumIntervalBetweenRestores
-    }
-
-    var shouldQuitImmediately: Bool { !preferenceEnabled }
-}
-
 extension AppModel {
-    /// Restore Codex routing when the launcher quits. Defaults to on.
-    var restoresRoutingOnQuit: Bool {
-        get { DesktopPreferences.restoresRoutingOnQuit(in: defaults) }
-        set { defaults.set(newValue, forKey: DesktopPreferences.restoresRoutingOnQuitKey) }
-    }
-
     // MARK: - ChatGPT lifecycle
 
     func refreshChatGPTStatus() {
@@ -155,35 +128,56 @@ extension AppModel {
 
     // MARK: - Quit-time cleanup
 
-    /// Restores native Codex routing and restarts ChatGPT before the launcher exits.
-    ///
-    /// Returns `nil` when cleanup is not wanted or already happened, so the caller can terminate
-    /// immediately. A returned message is shown to the user *and* remembered, so a second quit
-    /// attempt inside the same session never repeats a destructive step.
+    /// All quit entry points share one mandatory cleanup. Retry failures, including a failed
+    /// relaunch after the client already quit. Previous sessions and old preferences cannot skip it.
     func runExitCleanup() async -> String? {
-        let planner = ExitCleanupPlanner(
-            alreadyCleanedThisSession: didRunExitCleanup,
-            preferenceEnabled: restoresRoutingOnQuit,
-            lastCleanupAt: defaults.object(forKey: DesktopPreferences.lastExitCleanupKey) as? Date,
-            now: Date()
-        )
-        guard planner.shouldRestoreRouting else { return nil }
-        didRunExitCleanup = true
-
-        switch await restoreCodexRouting(restartChatGPT: true, reason: L10n.tr("退出客户端")) {
-        case .restored:
-            defaults.set(Date(), forKey: DesktopPreferences.lastExitCleanupKey)
-            eventStore.append(.codexRoutingRestored, detail: L10n.tr("退出客户端"))
-            return nil
-        case .timedOut:
-            let message = L10n.tr("还原 Codex 路由超时，配置可能仍指向本机代理。")
-            eventStore.append(.codexRoutingRestoreFailed, detail: L10n.tr("超时"))
-            return message
-        case let .failed(detail):
-            eventStore.append(.codexRoutingRestoreFailed, detail: detail.isEmpty ? nil : detail)
-            let trimmed = detail.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? L10n.tr("还原 Codex 路由失败。") : L10n.tr("还原 Codex 路由失败：\(trimmed)")
+        if let exitCleanupTask { return await exitCleanupTask.value }
+        guard !didRunExitCleanup else { return nil }
+        guard !isStoppingService, !isRestartingChatGPT, !isRefreshing else {
+            return L10n.tr("当前操作尚未完成，请完成后重试退出。")
         }
+        guard needsExitCleanup() else {
+            didRunExitCleanup = true
+            return nil
+        }
+        let task = Task { await performExitCleanup() }
+        exitCleanupTask = task
+        let message = await task.value
+        exitCleanupTask = nil
+        return message
+    }
+
+    private func performExitCleanup() async -> String? {
+        isStoppingService = true
+        errorMessage = nil
+        operationMessage = nil
+        defer { isStoppingService = false }
+        exitCleanupNeedsClientRestart = exitCleanupNeedsClientRestart || chatGPT.isRunning
+
+        do {
+            if try await stopOwnedCoreOnExitOperation() { eventStore.append(.coreStopped) }
+        } catch {
+            return L10n.tr("停止 OpenCodex 失败，未退出：\(error.localizedDescription)")
+        }
+
+        do {
+            try await restoreRoutingOperation()
+            eventStore.append(.codexRoutingRestored, detail: L10n.tr("退出客户端"))
+        } catch {
+            eventStore.append(.codexRoutingRestoreFailed, detail: L10n.tr("退出客户端"))
+            await refresh(showSpinner: false)
+            return L10n.tr("还原 Codex 路由失败，未退出：\(error.localizedDescription)")
+        }
+
+        if exitCleanupNeedsClientRestart || chatGPT.isRunning {
+            isChatGPTRestartPending = true
+            guard await restartChatGPT(reason: L10n.tr("退出客户端")) else {
+                return L10n.tr("OpenCodex 已停止，路由已还原，但 Codex 重启失败；\(errorMessage ?? L10n.tr("请手动重启 ChatGPT。"))")
+            }
+        }
+        exitCleanupNeedsClientRestart = false
+        didRunExitCleanup = true
+        return nil
     }
 
     // MARK: - Status observation
